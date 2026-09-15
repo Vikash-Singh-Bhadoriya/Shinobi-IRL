@@ -48,7 +48,9 @@ function toPublicResult(result: ShadowCloneResult): GestureResult {
   const leftHand = present.find((hand) => hand.label.toLowerCase() === 'left')
   const rightHand = present.find((hand) => hand.label.toLowerCase() === 'right')
   const left = mapHand(leftHand ?? present[0] ?? null)
-  const right = mapHand(rightHand ?? (present[1] !== leftHand ? present[1] : null) ?? present[1] ?? null)
+  const right = mapHand(
+    rightHand ?? (present[1] !== leftHand ? present[1] : null) ?? present[1] ?? null,
+  )
   const stability = result.stabilityElapsedMs >= DEFAULT_SHADOW_CLONE_CONFIG.stabilityMs
 
   return {
