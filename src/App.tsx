@@ -5,6 +5,7 @@ import { HandOverlay } from './components/HandOverlay'
 import { useCamera } from './hooks/useCamera'
 import { useGestureDetection } from './hooks/useGestureDetection'
 import { useHandTracking } from './hooks/useHandTracking'
+import { useShadowCloneEffect } from './hooks/useShadowCloneEffect'
 
 const VISION_STATUS_LABEL: Record<string, string> = {
   loading: 'Loading hand tracker...',
@@ -17,6 +18,7 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const { handsCount, visionFps, status: handStatus, registerSink } = useHandTracking(videoRef)
   const gesture = useGestureDetection(registerSink)
+  const shadowCloneEffect = useShadowCloneEffect(videoRef, gesture.state)
 
   const cameraLive = cameraState.status === 'ready'
   const visionLive = handStatus === 'ready' && cameraLive
@@ -32,6 +34,13 @@ export default function App() {
 
       <main className="app-main">
         <CameraView {...cameraState} onStart={onStart} videoRef={videoRef}>
+          <canvas
+            ref={shadowCloneEffect.canvasRef}
+            className="shadow-clone-effect-canvas"
+            width={1}
+            height={1}
+            aria-hidden="true"
+          />
           <HandOverlay registerSink={registerSink} />
         </CameraView>
 
@@ -49,6 +58,10 @@ export default function App() {
           <div className="readout">
             <span className="readout-label">Hands Detected</span>
             <span className="readout-value">{visionLive ? handsCount : '-'}</span>
+          </div>
+          <div className="readout">
+            <span className="readout-label">Shadow Clone Effect</span>
+            <span className="readout-value">{shadowCloneEffect.status}</span>
           </div>
         </section>
 
