@@ -1,8 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import type { CameraState } from '../types/camera'
 
 interface CameraViewProps extends CameraState {
   onStart: () => void
+  videoRef: RefObject<HTMLVideoElement>
+  children?: ReactNode
 }
 
 const STATUS_LABEL: Record<CameraState['status'], string> = {
@@ -25,8 +28,18 @@ const STATUS_MESSAGE: Record<CameraState['status'], string | null> = {
   unsupported: 'Your browser does not support camera access.',
 }
 
-export function CameraView({ status, stream, fps, videoWidth, videoHeight, error, onStart }: CameraViewProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
+export function CameraView({
+  status,
+  stream,
+  fps,
+  videoWidth,
+  videoHeight,
+  error,
+  onStart,
+  videoRef,
+  children,
+}: CameraViewProps) {
+  const [measuredAspect, setMeasuredAspect] = useState<number | null>(null)
 
   useEffect(() => {
     const video = videoRef.current
@@ -35,11 +48,13 @@ export function CameraView({ status, stream, fps, videoWidth, videoHeight, error
     return () => {
       video.srcObject = null
     }
-  }, [stream])
+  }, [stream, videoRef])
 
   const isLive = status === 'ready' && stream !== null
   const message = error ?? STATUS_MESSAGE[status]
-  const aspectRatio = videoWidth > 0 && videoHeight > 0 ? videoWidth / videoHeight : 16 / 9
+  const aspectRatio =
+    measuredAspect ??
+    (videoWidth > 0 && videoHeight > 0 ? videoWidth / videoHeight : 16 / 9)
 
   return (
     <div className="camera-view">
@@ -50,8 +65,16 @@ export function CameraView({ status, stream, fps, videoWidth, videoHeight, error
           autoPlay
           muted
           playsInline
+          onLoadedMetadata={(event) => {
+            const video = event.currentTarget
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              setMeasuredAspect(video.videoWidth / video.videoHeight)
+            }
+          }}
           aria-label="Live camera preview"
         />
+
+        {children}
 
         {!isLive && (
           <div className="camera-message">
@@ -78,7 +101,7 @@ export function CameraView({ status, stream, fps, videoWidth, videoHeight, error
           <span className={`readout-value status-${status}`}>{STATUS_LABEL[status]}</span>
         </div>
         <div className="readout">
-          <span className="readout-label">FPS</span>
+          <span className="readout-label">Camera FPS</span>
           <span className="readout-value">{isLive ? fps : '-'}</span>
         </div>
       </div>
