@@ -2,9 +2,11 @@ import { useRef } from 'react'
 import { CameraView } from './components/CameraView'
 import { GestureDebugPanel } from './components/GestureDebugPanel'
 import { HandOverlay } from './components/HandOverlay'
+import { RasenganDebugPanel } from './components/RasenganDebugPanel'
 import { useCamera } from './hooks/useCamera'
 import { useGestureDetection } from './hooks/useGestureDetection'
 import { useHandTracking } from './hooks/useHandTracking'
+import { useRasengan } from './hooks/useRasengan'
 import { useShadowCloneEffect } from './hooks/useShadowCloneEffect'
 import { useSelfieSegmentation } from './hooks/useSelfieSegmentation'
 
@@ -19,6 +21,7 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const { handsCount, visionFps, status: handStatus, registerSink } = useHandTracking(videoRef)
   const gesture = useGestureDetection(registerSink)
+  const rasengan = useRasengan(registerSink)
   const segmentation = useSelfieSegmentation(videoRef)
   const shadowCloneEffect = useShadowCloneEffect(segmentation.personCanvasRef, gesture.state)
   const debugMode = new URLSearchParams(window.location.search).has('debug')
@@ -49,6 +52,13 @@ export default function App() {
             height={1}
             aria-hidden="true"
           />
+          <canvas
+            ref={rasengan.canvasRef}
+            className="rasengan-effect-canvas"
+            width={1}
+            height={1}
+            aria-hidden="true"
+          />
           <canvas ref={segmentation.personCanvasRef} className="person-mask-canvas" aria-hidden="true" />
           <HandOverlay registerSink={registerSink} />
         </CameraView>
@@ -75,6 +85,7 @@ export default function App() {
         </section>}
 
         {debugMode && <GestureDebugPanel result={gesture} />}
+        {debugMode && <RasenganDebugPanel result={rasengan.result} />}
       </main>
     </div>
   )
