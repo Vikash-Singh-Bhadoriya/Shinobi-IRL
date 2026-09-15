@@ -2,8 +2,12 @@ import { distance, pointsOf } from './handGeometry'
 import type { Hand } from '../types/hand'
 import type { FingerSignOk } from './types'
 
-export const EXTENDED_MIN_RATIO = 0.85
-export const CURLED_MAX_RATIO = 0.7
+export const EXTENDED_MIN_RATIO = 0.78
+export const CURLED_MAX_RATIO = 0.78
+const EXTENDED_MIN_ANGLE = 145
+const CURLED_MAX_ANGLE = 125
+const TIP_DISTANCE_MIN_RATIO = 1.35
+const TIP_DISTANCE_MAX_RATIO = 1.15
 
 export interface FingerChain {
   mcp: number
@@ -31,12 +35,36 @@ function straightnessRatio(hand: Hand, chain: FingerChain): number {
   return distance(mcp, tip) / chainLength
 }
 
+function jointAngle(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }): number {
+  const ab = { x: a.x - b.x, y: a.y - b.y }
+  const cb = { x: c.x - b.x, y: c.y - b.y }
+  const denominator = Math.hypot(ab.x, ab.y) * Math.hypot(cb.x, cb.y)
+  if (denominator === 0) return 0
+  const cosine = Math.max(-1, Math.min(1, (ab.x * cb.x + ab.y * cb.y) / denominator))
+  return (Math.acos(cosine) * 180) / Math.PI
+}
+
+function normalizedFingerMetrics(hand: Hand, chain: FingerChain) {
+  const [mcp, pip, dip, tip] = pointsOf(hand, [chain.mcp, chain.pip, chain.dip, chain.tip])
+  const wristSize = distance(hand[0], hand[9])
+  const scale = wristSize > 0 ? wristSize : 1
+  const angle = (jointAngle(mcp, pip, dip) + jointAngle(pip, dip, tip)) / 2
+  const tipDistanceRatio = distance(hand[0], tip) / scale
+  return { ratio: straightnessRatio(hand, chain), angle, tipDistanceRatio }
+}
+
 export function isFingerExtended(hand: Hand, chain: FingerChain): boolean {
-  return straightnessRatio(hand, chain) >= EXTENDED_MIN_RATIO
+  const metrics = normalizedFingerMetrics(hand, chain)
+  return (
+    metrics.ratio >= EXTENDED_MIN_RATIO &&
+    metrics.angle >= EXTENDED_MIN_ANGLE &&
+    metrics.tipDistanceRatio >= TIP_DISTANCE_MIN_RATIO
+  )
 }
 
 export function isFingerCurled(hand: Hand, chain: FingerChain): boolean {
-  return straightnessRatio(hand, chain) <= CURLED_MAX_RATIO
+  const metrics = normalizedFingerMetrics(hand, chain)
+  return metrics.ratio <= CURLED_MAX_RATIO || metrics.angle <= CURLED_MAX_ANGLE || metrics.tipDistanceRatio <= TIP_DISTANCE_MAX_RATIO
 }
 
 /** Whether this hand satisfies the Shadow Clone finger requirement. */

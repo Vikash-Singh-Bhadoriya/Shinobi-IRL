@@ -49,6 +49,9 @@ export function GestureDebugPanel({ result }: GestureDebugPanelProps) {
   return (
     <section className="gesture-debug" aria-label="Shadow clone analysis">
       <h2 className="gesture-debug-title">Shadow Clone Analysis</h2>
+      <div className={`gesture-state gesture-state-${result.state.toLowerCase()}`}>
+        {result.message}
+      </div>
 
       <div className="gesture-debug-grid">
         <HandCard title="Left Hand" hand={result.debug.left} />

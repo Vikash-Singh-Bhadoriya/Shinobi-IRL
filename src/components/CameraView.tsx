@@ -102,7 +102,7 @@ export function CameraView({
           <span className={`readout-value status-${status}`}>{STATUS_LABEL[status]}</span>
         </div>
         <div className="readout">
-          <span className="readout-label">Camera FPS</span>
+          <span className="readout-label">Rendered FPS</span>
           <span className="readout-value">{isLive ? fps : '-'}</span>
         </div>
         <div className="readout">

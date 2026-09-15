@@ -2,11 +2,19 @@ import type { FingerSignOk, HandOrientationLabel } from '../gestures/types'
 
 export interface GestureChecks {
   twoHands: boolean
-  fingers: boolean
+  indexExtended: boolean
+  middleExtended: boolean
+  ringCurled: boolean
+  pinkyCurled: boolean
   orientation: boolean
   intersection: boolean
   stability: boolean
 }
+
+export type ShadowCloneState =
+  | 'SEARCHING_HANDS'
+  | 'WAITING_FOR_SHADOW_CLONE_POSE'
+  | 'SHADOW_CLONE_READY'
 
 export interface HandGestureDebug {
   fingers: FingerSignOk
@@ -30,5 +38,7 @@ export interface GestureResult {
   gesture: GestureName
   confidence: number
   checks: GestureChecks
+  state: ShadowCloneState
+  message: string
   debug: GestureDebugData
 }

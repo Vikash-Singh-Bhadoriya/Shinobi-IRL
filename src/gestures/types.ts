@@ -22,7 +22,10 @@ export interface HandAnalysis {
 
 export interface ShadowCloneAnalysis {
   twoHands: boolean
-  fingersMatch: boolean
+  indexExtended: boolean
+  middleExtended: boolean
+  ringCurled: boolean
+  pinkyCurled: boolean
   orientationsMatch: boolean
   intersectionOk: boolean
   fingerScore: number

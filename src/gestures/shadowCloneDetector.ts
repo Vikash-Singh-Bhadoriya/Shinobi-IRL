@@ -19,8 +19,6 @@ export const DEFAULT_SHADOW_CLONE_CONFIG: ShadowCloneConfig = {
   intersectionMaxRatio: 1.0,
 }
 
-const REQUIRED_FINGER_CHECKS = 8
-
 function analyzeHand(hand: Hand, label: string): HandAnalysis {
   const fingers = analyzeSignFingers(hand)
   const angleDeg = handOrientationAngle(hand)
@@ -33,15 +31,6 @@ function analyzeHand(hand: Hand, label: string): HandAnalysis {
   }
 }
 
-function countFingersOk(hand: HandAnalysis): number {
-  return (
-    (hand.fingers.index ? 1 : 0) +
-    (hand.fingers.middle ? 1 : 0) +
-    (hand.fingers.ring ? 1 : 0) +
-    (hand.fingers.pinky ? 1 : 0)
-  )
-}
-
 export function analyzeShadowClonePose(frame: HandFrame, maxIntersectionRatio: number): ShadowCloneAnalysis {
   const first = frame[0] ? analyzeHand(frame[0].landmarks, frame[0].handedness) : null
   const second = frame[1] ? analyzeHand(frame[1].landmarks, frame[1].handedness) : null
@@ -50,7 +39,10 @@ export function analyzeShadowClonePose(frame: HandFrame, maxIntersectionRatio: n
   if (!first || !second) {
     return {
       twoHands: false,
-      fingersMatch: false,
+      indexExtended: false,
+      middleExtended: false,
+      ringCurled: false,
+      pinkyCurled: false,
       orientationsMatch: false,
       intersectionOk: false,
       fingerScore: 0,
@@ -60,7 +52,13 @@ export function analyzeShadowClonePose(frame: HandFrame, maxIntersectionRatio: n
     }
   }
 
-  const fingerScore = (countFingersOk(first) + countFingersOk(second)) / REQUIRED_FINGER_CHECKS
+  const indexExtended = first.fingers.index && second.fingers.index
+  const middleExtended = first.fingers.middle && second.fingers.middle
+  const ringCurled = first.fingers.ring && second.fingers.ring
+  const pinkyCurled = first.fingers.pinky && second.fingers.pinky
+  const mandatoryFingerScore = (Number(indexExtended) + Number(middleExtended)) / 2
+  const softFingerScore = (Number(ringCurled) + Number(pinkyCurled)) / 2
+  const fingerScore = mandatoryFingerScore * 0.7 + softFingerScore * 0.3
   const orientations = [first.orientation.label, second.orientation.label]
   const orientationsMatch = orientations.includes('vertical') && orientations.includes('horizontal')
   const orientationScore = orientationsMatch ? 1 : orientations.some(Boolean) ? 0.5 : 0
@@ -74,7 +72,10 @@ export function analyzeShadowClonePose(frame: HandFrame, maxIntersectionRatio: n
 
   return {
     twoHands: true,
-    fingersMatch: fingerScore === 1,
+    indexExtended,
+    middleExtended,
+    ringCurled,
+    pinkyCurled,
     orientationsMatch,
     intersectionOk,
     fingerScore,
@@ -93,7 +94,9 @@ export function createShadowCloneDetector(config?: Partial<ShadowCloneConfig>) {
       const analysis = analyzeShadowClonePose(frame, cfg.intersectionMaxRatio)
       const isPose =
         analysis.twoHands &&
-        analysis.fingersMatch &&
+        analysis.indexExtended &&
+        analysis.middleExtended &&
+        (analysis.ringCurled || analysis.pinkyCurled) &&
         analysis.orientationsMatch &&
         analysis.intersectionOk
 
@@ -108,13 +111,17 @@ export function createShadowCloneDetector(config?: Partial<ShadowCloneConfig>) {
       const stabilityScore = isPose ? Math.min(1, stabilityElapsedMs / cfg.stabilityMs) : 0
       const detected = isPose && stabilityElapsedMs >= cfg.stabilityMs
 
+      const mandatoryFingerScore =
+        (Number(analysis.indexExtended) + Number(analysis.middleExtended)) / 2
+      const softFingerScore =
+        (Number(analysis.ringCurled) + Number(analysis.pinkyCurled)) / 2
       const confidence =
-        ((analysis.twoHands ? 1 : 0) +
-          analysis.fingerScore +
-          analysis.orientationScore +
-          (analysis.intersectionOk ? 1 : 0) +
-          stabilityScore) /
-        5
+        (Number(analysis.twoHands) * 0.15 +
+          mandatoryFingerScore * 0.35 +
+          softFingerScore * 0.2 +
+          analysis.orientationScore * 0.15 +
+          Number(analysis.intersectionOk) * 0.1 +
+          stabilityScore * 0.05)
 
       return { detected, confidence, stabilityElapsedMs, analysis }
     },

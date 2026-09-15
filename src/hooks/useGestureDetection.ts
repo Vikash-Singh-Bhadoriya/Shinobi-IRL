@@ -13,11 +13,16 @@ const EMPTY_RESULT: GestureResult = {
   confidence: 0,
   checks: {
     twoHands: false,
-    fingers: false,
+    indexExtended: false,
+    middleExtended: false,
+    ringCurled: false,
+    pinkyCurled: false,
     orientation: false,
     intersection: false,
     stability: false,
   },
+  state: 'SEARCHING_HANDS',
+  message: 'Show both hands',
   debug: {
     fingerScore: 0,
     orientationScore: 0,
@@ -52,11 +57,26 @@ function toPublicResult(result: ShadowCloneResult): GestureResult {
     confidence: result.confidence,
     checks: {
       twoHands: analysis.twoHands,
-      fingers: analysis.fingersMatch,
+      indexExtended: analysis.indexExtended,
+      middleExtended: analysis.middleExtended,
+      ringCurled: analysis.ringCurled,
+      pinkyCurled: analysis.pinkyCurled,
       orientation: analysis.orientationsMatch,
       intersection: analysis.intersectionOk,
       stability,
     },
+    state: result.detected
+      ? 'SHADOW_CLONE_READY'
+      : !analysis.twoHands
+        ? 'SEARCHING_HANDS'
+        : 'WAITING_FOR_SHADOW_CLONE_POSE',
+    message: result.detected
+      ? 'Shadow Clone Ready'
+      : !analysis.twoHands
+        ? analysis.hands.some(Boolean)
+          ? 'Need two hands'
+          : 'Show both hands'
+        : 'Form Shadow Clone sign',
     debug: {
       fingerScore: analysis.fingerScore,
       orientationScore: analysis.orientationScore,
