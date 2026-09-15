@@ -22,8 +22,8 @@ function buildConstraints(options: CameraOptions): MediaStreamConstraints {
   const source = options.video && typeof options.video === 'object' ? options.video : {}
   const video: MediaTrackConstraints = {
     ...source,
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
+    width: { ideal: 640 },
+    height: { ideal: 480 },
   }
   if (options.targetFacing) video.facingMode = options.targetFacing
   return {

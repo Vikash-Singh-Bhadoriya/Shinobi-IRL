@@ -12,6 +12,7 @@ const INITIAL_STATE: HandTrackingState = {
 }
 
 const FPS_WINDOW_MS = 500
+const INFERENCE_INTERVAL_MS = 33
 
 export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
   const [state, setState] = useState<HandTrackingState>(INITIAL_STATE)
@@ -20,6 +21,7 @@ export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
   const sinkRef = useRef<HandLandmarksSink | null>(null)
   const detectionCountRef = useRef(0)
   const fpsWindowStartRef = useRef(0)
+  const lastInferenceRef = useRef(0)
   const isReady = state.status === 'ready'
 
   const registerSink = useCallback((sink: HandLandmarksSink) => {
@@ -52,6 +54,7 @@ export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
 
     let raf = 0
     fpsWindowStartRef.current = 0
+    lastInferenceRef.current = 0
 
     const updateVisionFps = (now: number) => {
       detectionCountRef.current += 1
@@ -70,16 +73,20 @@ export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
       const landmarker = landmarkerRef.current
 
       if (video && landmarker && video.videoWidth > 0 && video.readyState >= 2 && !video.paused) {
-        const result = landmarker.detectForVideo(video, now)
-        const hands: HandLandmarks | null = result.landmarks.length > 0 ? result.landmarks : null
+        const elapsed = now - lastInferenceRef.current
+        if (elapsed >= INFERENCE_INTERVAL_MS) {
+          lastInferenceRef.current = now
+          const result = landmarker.detectForVideo(video, now)
+          const hands: HandLandmarks | null = result.landmarks.length > 0 ? result.landmarks : null
 
-        sinkRef.current?.(hands)
-        updateVisionFps(now)
+          sinkRef.current?.(hands)
+          updateVisionFps(now)
 
-        const detected = hands?.length ?? 0
-        setState((prev) =>
-          prev.handsCount === detected ? prev : { ...prev, handsCount: detected },
-        )
+          const detected = hands?.length ?? 0
+          setState((prev) =>
+            prev.handsCount === detected ? prev : { ...prev, handsCount: detected },
+          )
+        }
       }
 
       raf = requestAnimationFrame(tick)
