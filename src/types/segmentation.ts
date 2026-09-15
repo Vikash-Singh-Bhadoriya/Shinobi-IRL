@@ -1,0 +1,1 @@
+export type SegmentationStatus = 'loading' | 'ready' | 'error'

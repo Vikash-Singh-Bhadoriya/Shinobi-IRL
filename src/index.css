@@ -71,6 +71,31 @@ body {
   max-width: 960px;
 }
 
+.app:not(.is-debug) {
+  height: 100dvh;
+  min-height: 100dvh;
+  padding: 0;
+  gap: 0;
+}
+
+.app:not(.is-debug) .app-header {
+  display: none;
+}
+
+.app:not(.is-debug) .app-main,
+.app:not(.is-debug) .camera-view,
+.app:not(.is-debug) .camera-frame {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+}
+
+.app:not(.is-debug) .camera-frame {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 /* ---------- Camera view ---------- */
 
 .camera-view {
@@ -87,6 +112,14 @@ body {
   background: #000;
   border: 1px solid var(--border);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+
+.person-mask-canvas {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .camera-video {

@@ -6,6 +6,7 @@ interface CameraViewProps extends CameraState {
   onStart: () => void
   videoRef: RefObject<HTMLVideoElement>
   children?: ReactNode
+  showDebug?: boolean
 }
 
 const STATUS_LABEL: Record<CameraState['status'], string> = {
@@ -39,6 +40,7 @@ export function CameraView({
   onStart,
   videoRef,
   children,
+  showDebug = false,
 }: CameraViewProps) {
   const [measuredAspect, setMeasuredAspect] = useState<number | null>(null)
 
@@ -96,7 +98,7 @@ export function CameraView({
         )}
       </div>
 
-      <div className="camera-readouts">
+      {showDebug && <div className="camera-readouts">
         <div className="readout">
           <span className="readout-label">Camera Status</span>
           <span className={`readout-value status-${status}`}>{STATUS_LABEL[status]}</span>
@@ -117,7 +119,7 @@ export function CameraView({
             {isLive && frameRate ? `${Math.round(frameRate)} FPS` : '-'}
           </span>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

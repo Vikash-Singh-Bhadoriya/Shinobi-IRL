@@ -12,26 +12,13 @@ const SMOKE_PARTICLES: SmokeParticle[] = Array.from({ length: 12 }, (_, index) =
   size: 0.035 + (index % 3) * 0.018,
 }))
 
-function drawVideoCover(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, width: number, height: number) {
-  const sourceRatio = video.videoWidth / video.videoHeight
-  const targetRatio = width / height
-  let sourceX = 0
-  let sourceY = 0
-  let sourceWidth = video.videoWidth
-  let sourceHeight = video.videoHeight
-
-  if (sourceRatio > targetRatio) {
-    sourceWidth = video.videoHeight * targetRatio
-    sourceX = (video.videoWidth - sourceWidth) / 2
-  } else if (sourceRatio < targetRatio) {
-    sourceHeight = video.videoWidth / targetRatio
-    sourceY = (video.videoHeight - sourceHeight) / 2
-  }
-
-  ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height)
-}
-
-function drawClone(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, width: number, height: number, frame: ShadowCloneFrame) {
+function drawClone(
+  ctx: CanvasRenderingContext2D,
+  personCanvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+  frame: ShadowCloneFrame,
+) {
   ctx.save()
   ctx.globalAlpha = frame.opacity
   ctx.filter = 'blur(1.2px) saturate(0.7)'
@@ -39,7 +26,7 @@ function drawClone(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, width
   ctx.rotate(frame.rotation)
   ctx.scale(frame.scale, frame.scale)
   ctx.translate(-width / 2, -height / 2)
-  drawVideoCover(ctx, video, width, height)
+  ctx.drawImage(personCanvas, 0, 0, personCanvas.width, personCanvas.height, 0, 0, width, height)
   ctx.restore()
 }
 
@@ -63,7 +50,7 @@ function drawSmoke(ctx: CanvasRenderingContext2D, width: number, height: number,
 
 export function renderShadowCloneFrame(
   ctx: CanvasRenderingContext2D,
-  video: HTMLVideoElement,
+  personCanvas: HTMLCanvasElement,
   clones: ShadowClone[],
   frames: ShadowCloneFrame[],
   width: number,
@@ -71,9 +58,8 @@ export function renderShadowCloneFrame(
   progress: number,
 ) {
   ctx.clearRect(0, 0, width, height)
-  drawVideoCover(ctx, video, width, height)
   for (let index = 0; index < clones.length; index += 1) {
-    drawClone(ctx, video, width, height, frames[index])
+    drawClone(ctx, personCanvas, width, height, frames[index])
   }
   drawSmoke(ctx, width, height, progress)
 }

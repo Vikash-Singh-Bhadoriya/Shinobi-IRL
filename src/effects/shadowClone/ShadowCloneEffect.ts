@@ -19,7 +19,7 @@ function createClones(): ShadowClone[] {
 
 export class ShadowCloneEffect {
   private readonly canvas: HTMLCanvasElement
-  private readonly video: HTMLVideoElement
+  private readonly personCanvas: HTMLCanvasElement
   private readonly ctx: CanvasRenderingContext2D
   private readonly onStatusChange: (status: ShadowCloneEffectStatus) => void
   private clones: ShadowClone[] = []
@@ -33,13 +33,13 @@ export class ShadowCloneEffect {
 
   constructor(
     canvas: HTMLCanvasElement,
-    video: HTMLVideoElement,
+    personCanvas: HTMLCanvasElement,
     onStatusChange: (status: ShadowCloneEffectStatus) => void,
   ) {
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Shadow Clone effect canvas is unavailable')
     this.canvas = canvas
-    this.video = video
+    this.personCanvas = personCanvas
     this.ctx = ctx
     this.onStatusChange = onStatusChange
   }
@@ -82,7 +82,7 @@ export class ShadowCloneEffect {
     this.lastRenderAt = now
     const width = this.canvas.clientWidth
     const height = this.canvas.clientHeight
-    if (width === 0 || height === 0 || this.video.readyState < 2) {
+    if (width === 0 || height === 0 || this.personCanvas.width === 0 || this.personCanvas.height === 0) {
       this.animationFrame = requestAnimationFrame(this.render)
       return
     }
@@ -93,7 +93,7 @@ export class ShadowCloneEffect {
     const progress = Math.min(1, elapsed / ANIMATION_MS)
     if (elapsed >= SPAWN_MS && this.status === 'SPAWNING') this.setStatus('ANIMATING')
     const frames = this.clones.map((clone) => animateClone(clone, progress))
-    renderShadowCloneFrame(this.ctx, this.video, this.clones, frames, width, height, progress)
+    renderShadowCloneFrame(this.ctx, this.personCanvas, this.clones, frames, width, height, progress)
 
     if (elapsed < ANIMATION_MS) {
       this.animationFrame = requestAnimationFrame(this.render)

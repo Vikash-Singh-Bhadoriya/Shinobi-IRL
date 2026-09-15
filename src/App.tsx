@@ -6,6 +6,7 @@ import { useCamera } from './hooks/useCamera'
 import { useGestureDetection } from './hooks/useGestureDetection'
 import { useHandTracking } from './hooks/useHandTracking'
 import { useShadowCloneEffect } from './hooks/useShadowCloneEffect'
+import { useSelfieSegmentation } from './hooks/useSelfieSegmentation'
 
 const VISION_STATUS_LABEL: Record<string, string> = {
   loading: 'Loading hand tracker...',
@@ -18,13 +19,15 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const { handsCount, visionFps, status: handStatus, registerSink } = useHandTracking(videoRef)
   const gesture = useGestureDetection(registerSink)
-  const shadowCloneEffect = useShadowCloneEffect(videoRef, gesture.state)
+  const segmentation = useSelfieSegmentation(videoRef)
+  const shadowCloneEffect = useShadowCloneEffect(segmentation.personCanvasRef, gesture.state)
+  const debugMode = new URLSearchParams(window.location.search).has('debug')
 
   const cameraLive = cameraState.status === 'ready'
   const visionLive = handStatus === 'ready' && cameraLive
 
   return (
-    <div className="app">
+    <div className={`app ${debugMode ? 'is-debug' : ''}`}>
       <header className="app-header">
         <h1 className="app-title">
           <span aria-hidden="true">🥷</span> SHINOBI IRL
@@ -33,7 +36,12 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        <CameraView {...cameraState} onStart={onStart} videoRef={videoRef}>
+        <CameraView
+          {...cameraState}
+          onStart={onStart}
+          videoRef={videoRef}
+          showDebug={debugMode}
+        >
           <canvas
             ref={shadowCloneEffect.canvasRef}
             className="shadow-clone-effect-canvas"
@@ -41,10 +49,11 @@ export default function App() {
             height={1}
             aria-hidden="true"
           />
+          <canvas ref={segmentation.personCanvasRef} className="person-mask-canvas" aria-hidden="true" />
           <HandOverlay registerSink={registerSink} />
         </CameraView>
 
-        <section className="vision-readouts" aria-label="Vision diagnostics">
+        {debugMode && <section className="vision-readouts" aria-label="Vision diagnostics">
           <div className="readout">
             <span className="readout-label">Vision Status</span>
             <span className={`readout-value status-hand-${handStatus}`}>
@@ -63,9 +72,9 @@ export default function App() {
             <span className="readout-label">Shadow Clone Effect</span>
             <span className="readout-value">{shadowCloneEffect.status}</span>
           </div>
-        </section>
+        </section>}
 
-        <GestureDebugPanel result={gesture} />
+        {debugMode && <GestureDebugPanel result={gesture} />}
       </main>
     </div>
   )
