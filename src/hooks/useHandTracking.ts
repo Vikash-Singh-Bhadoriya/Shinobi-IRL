@@ -12,7 +12,10 @@ const INITIAL_STATE: HandTrackingState = {
 }
 
 const FPS_WINDOW_MS = 500
-const INFERENCE_INTERVAL_MS = 33
+const BASE_INTERVAL_MS = 33
+const HEAVY_INTERVAL_MS = 50
+const HEAVY_THRESHOLD_MS = 30
+const AI_MAX_DIM = 480
 
 export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
   const [state, setState] = useState<HandTrackingState>(INITIAL_STATE)
@@ -22,6 +25,8 @@ export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
   const detectionCountRef = useRef(0)
   const fpsWindowStartRef = useRef(0)
   const lastInferenceRef = useRef(0)
+  const lastProcessedVideoTimeRef = useRef(-1)
+  const nextIntervalRef = useRef<number>(BASE_INTERVAL_MS)
   const isReady = state.status === 'ready'
 
   const registerSink = useCallback((sink: HandLandmarksSink) => {
@@ -55,6 +60,40 @@ export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
     let raf = 0
     fpsWindowStartRef.current = 0
     lastInferenceRef.current = 0
+    lastProcessedVideoTimeRef.current = -1
+    nextIntervalRef.current = BASE_INTERVAL_MS
+
+    let aiCanvas: HTMLCanvasElement | null = null
+    let aiContext: CanvasRenderingContext2D | null = null
+    let lastAiW = 0
+    let lastAiH = 0
+
+    const ensureAiCanvas = (videoW: number, videoH: number): HTMLCanvasElement | null => {
+      const scale = AI_MAX_DIM / Math.max(videoW, videoH)
+      const nextW = Math.max(2, Math.round(videoW * scale))
+      const nextH = Math.max(2, Math.round(videoH * scale))
+
+      if (!aiCanvas) {
+        aiCanvas = document.createElement('canvas')
+        aiContext = aiCanvas.getContext('2d')
+        if (aiContext) {
+          aiContext.imageSmoothingEnabled = true
+          aiContext.imageSmoothingQuality = 'low'
+        }
+      }
+
+      if (nextW !== lastAiW || nextH !== lastAiH) {
+        if (aiCanvas) {
+          aiCanvas.width = nextW
+          aiCanvas.height = nextH
+        }
+        lastAiW = nextW
+        lastAiH = nextH
+        console.info(`[hand-tracking] AI input canvas ${nextW}x${nextH} (video ${videoW}x${videoH})`)
+      }
+
+      return aiContext ? aiCanvas : null
+    }
 
     const updateVisionFps = (now: number) => {
       detectionCountRef.current += 1
@@ -73,19 +112,27 @@ export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
       const landmarker = landmarkerRef.current
 
       if (video && landmarker && video.videoWidth > 0 && video.readyState >= 2 && !video.paused) {
-        const elapsed = now - lastInferenceRef.current
-        if (elapsed >= INFERENCE_INTERVAL_MS) {
-          lastInferenceRef.current = now
-          const result = landmarker.detectForVideo(video, now)
-          const hands: HandLandmarks | null = result.landmarks.length > 0 ? result.landmarks : null
+        const frameReady = video.currentTime !== lastProcessedVideoTimeRef.current
+        if (now - lastInferenceRef.current >= nextIntervalRef.current && frameReady) {
+          lastProcessedVideoTimeRef.current = video.currentTime
+          const canvas = ensureAiCanvas(video.videoWidth, video.videoHeight)
+          if (canvas && aiContext) {
+            lastInferenceRef.current = now
+            aiContext.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const t0 = performance.now()
+            const result = landmarker.detectForVideo(canvas, now)
+            const cost = performance.now() - t0
+            nextIntervalRef.current = cost >= HEAVY_THRESHOLD_MS ? HEAVY_INTERVAL_MS : BASE_INTERVAL_MS
 
-          sinkRef.current?.(hands)
-          updateVisionFps(now)
+            const hands: HandLandmarks | null = result.landmarks.length > 0 ? result.landmarks : null
+            sinkRef.current?.(hands)
+            updateVisionFps(now)
 
-          const detected = hands?.length ?? 0
-          setState((prev) =>
-            prev.handsCount === detected ? prev : { ...prev, handsCount: detected },
-          )
+            const detected = hands?.length ?? 0
+            setState((prev) =>
+              prev.handsCount === detected ? prev : { ...prev, handsCount: detected },
+            )
+          }
         }
       }
 

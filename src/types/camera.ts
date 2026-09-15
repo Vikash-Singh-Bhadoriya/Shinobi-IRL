@@ -13,6 +13,7 @@ export interface CameraState {
   fps: number
   videoWidth: number
   videoHeight: number
+  frameRate: number | null
   error: string | null
 }
 

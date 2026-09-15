@@ -34,6 +34,7 @@ export function CameraView({
   fps,
   videoWidth,
   videoHeight,
+  frameRate,
   error,
   onStart,
   videoRef,
@@ -103,6 +104,18 @@ export function CameraView({
         <div className="readout">
           <span className="readout-label">Camera FPS</span>
           <span className="readout-value">{isLive ? fps : '-'}</span>
+        </div>
+        <div className="readout">
+          <span className="readout-label">Resolution</span>
+          <span className="readout-value">
+            {isLive ? `${videoWidth}×${videoHeight}` : '-'}
+          </span>
+        </div>
+        <div className="readout">
+          <span className="readout-label">Frame Rate</span>
+          <span className="readout-value">
+            {isLive && frameRate ? `${Math.round(frameRate)} FPS` : '-'}
+          </span>
         </div>
       </div>
     </div>

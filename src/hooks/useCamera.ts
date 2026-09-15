@@ -7,6 +7,7 @@ const INITIAL_STATE: CameraState = {
   fps: 0,
   videoWidth: 0,
   videoHeight: 0,
+  frameRate: null,
   error: null,
 }
 
@@ -124,12 +125,20 @@ export function useCamera(options: CameraOptions = {}) {
       streamRef.current = stream
       runFpsLoop()
       const settings = stream.getVideoTracks()[0]?.getSettings()
+      console.info('[camera] active track settings:', {
+        width: settings?.width ?? 0,
+        height: settings?.height ?? 0,
+        frameRate: settings?.frameRate ?? null,
+        facingMode: settings?.facingMode ?? null,
+        requested: buildConstraints(optionsRef.current).video as MediaTrackConstraints,
+      })
       setState((prev) => ({
         ...prev,
         status: 'ready',
         stream,
         videoWidth: settings?.width ?? 0,
         videoHeight: settings?.height ?? 0,
+        frameRate: settings?.frameRate ?? null,
         error: null,
       }))
     } catch (err) {
