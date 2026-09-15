@@ -2,5 +2,6 @@ export type ShadowCloneEffectStatus =
   | 'IDLE'
   | 'READY'
   | 'SPAWNING'
-  | 'ANIMATING'
+  | 'ACTIVE'
+  | 'ENDING'
   | 'COOLDOWN'

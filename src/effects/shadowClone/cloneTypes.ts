@@ -1,4 +1,8 @@
-export type ShadowCloneAnimation = 'left' | 'right' | 'jump' | 'attack'
+export type ShadowCloneAnimation =
+  | 'LEFT_RUNNER'
+  | 'RIGHT_RUNNER'
+  | 'JUMP_OVER'
+  | 'CAMERA_ATTACK'
 
 export interface ShadowClone {
   id: string

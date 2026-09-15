@@ -3,17 +3,18 @@ import type { ShadowClone } from './cloneTypes'
 import { animateClone } from './cloneAnimator'
 import { renderShadowCloneFrame } from './cloneRenderer'
 
-const SPAWN_MS = 180
-const ANIMATION_MS = 800
+const SPAWN_MS = 1400
+const CLONE_LIFETIME_MS = 90000
+const ENDING_MS = 500
 const COOLDOWN_MS = 3000
 const FRAME_INTERVAL_MS = 1000 / 30
 
 function createClones(): ShadowClone[] {
   return [
-    { id: 'clone-left', x: 0, y: 0, scale: 1, opacity: 0.72, rotation: 0, animation: 'left' },
-    { id: 'clone-right', x: 0, y: 0, scale: 1, opacity: 0.72, rotation: 0, animation: 'right' },
-    { id: 'clone-jump', x: 0, y: 0, scale: 1, opacity: 0.68, rotation: 0, animation: 'jump' },
-    { id: 'clone-attack', x: 0, y: 0, scale: 1, opacity: 0.8, rotation: 0, animation: 'attack' },
+    { id: 'clone-left', x: 0, y: 0, scale: 1, opacity: 0.9, rotation: 0, animation: 'LEFT_RUNNER' },
+    { id: 'clone-right', x: 0, y: 0, scale: 1, opacity: 0.9, rotation: 0, animation: 'RIGHT_RUNNER' },
+    { id: 'clone-jump', x: 0, y: 0, scale: 1, opacity: 0.88, rotation: 0, animation: 'JUMP_OVER' },
+    { id: 'clone-attack', x: 0, y: 0, scale: 1, opacity: 0.9, rotation: 0, animation: 'CAMERA_ATTACK' },
   ]
 }
 
@@ -29,6 +30,7 @@ export class ShadowCloneEffect {
   private cooldownUntil = 0
   private cooldownTimer = 0
   private lastRenderAt = 0
+  private endingStartedAt = 0
   private status: ShadowCloneEffectStatus = 'IDLE'
 
   constructor(
@@ -90,12 +92,31 @@ export class ShadowCloneEffect {
     if (this.canvas.height !== height) this.canvas.height = height
 
     const elapsed = now - this.startedAt
-    const progress = Math.min(1, elapsed / ANIMATION_MS)
-    if (elapsed >= SPAWN_MS && this.status === 'SPAWNING') this.setStatus('ANIMATING')
-    const frames = this.clones.map((clone) => animateClone(clone, progress))
-    renderShadowCloneFrame(this.ctx, this.personCanvas, this.clones, frames, width, height, progress)
+    if (elapsed >= SPAWN_MS && this.status === 'SPAWNING') this.setStatus('ACTIVE')
+    if (elapsed >= CLONE_LIFETIME_MS && this.status === 'ACTIVE') {
+      this.endingStartedAt = now
+      this.setStatus('ENDING')
+    }
 
-    if (elapsed < ANIMATION_MS) {
+    const animationElapsed = Math.min(elapsed, SPAWN_MS)
+    const fadeProgress =
+      this.status === 'ENDING' ? Math.min(1, (now - this.endingStartedAt) / ENDING_MS) : 0
+    const frames = this.clones.map((clone) => {
+      const frame = animateClone(clone, animationElapsed)
+      return { ...frame, opacity: frame.opacity * (1 - fadeProgress) }
+    })
+    renderShadowCloneFrame(
+      this.ctx,
+      this.personCanvas,
+      this.clones,
+      frames,
+      width,
+      height,
+      elapsed,
+      fadeProgress,
+    )
+
+    if (this.status === 'SPAWNING' || this.status === 'ACTIVE' || fadeProgress < 1) {
       this.animationFrame = requestAnimationFrame(this.render)
       return
     }
