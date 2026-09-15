@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
-import type { HandLandmarks, HandLandmarksSink } from '../types/hand'
+import type { HandFrame, HandFrameSink } from '../types/hand'
 import { HAND_CONNECTIONS } from '../vision/handLandmarker'
 
 interface HandOverlayProps {
-  registerSink: (sink: HandLandmarksSink) => void
+  registerSink: (sink: HandFrameSink) => () => void
 }
 
 export function HandOverlay({ registerSink }: HandOverlayProps) {
@@ -15,7 +15,7 @@ export function HandOverlay({ registerSink }: HandOverlayProps) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const draw = (landmarks: HandLandmarks | null) => {
+    const draw = (frame: HandFrame) => {
       const width = canvas.clientWidth
       const height = canvas.clientHeight
       if (width === 0 || height === 0) return
@@ -23,7 +23,7 @@ export function HandOverlay({ registerSink }: HandOverlayProps) {
       if (canvas.height !== height) canvas.height = height
 
       ctx.clearRect(0, 0, width, height)
-      if (!landmarks) return
+      if (frame.length === 0) return
 
       const point = (l: { x: number; y: number }) => ({ x: l.x * width, y: l.y * height })
 
@@ -33,8 +33,8 @@ export function HandOverlay({ registerSink }: HandOverlayProps) {
       ctx.strokeStyle = 'rgba(124, 231, 255, 0.85)'
       ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
 
-      for (const hand of landmarks) {
-        const joints = hand.map(point)
+      for (const tracked of frame) {
+        const joints = tracked.landmarks.map(point)
 
         ctx.beginPath()
         for (const [start, end] of HAND_CONNECTIONS) {
@@ -52,9 +52,10 @@ export function HandOverlay({ registerSink }: HandOverlayProps) {
       }
     }
 
-    registerSink(draw)
+    const unsubscribe = registerSink(draw)
 
     return () => {
+      unsubscribe()
       ctx.clearRect(0, 0, canvas.width, canvas.height)
     }
   }, [registerSink])

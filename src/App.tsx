@@ -1,7 +1,9 @@
 import { useRef } from 'react'
 import { CameraView } from './components/CameraView'
+import { GestureDebugPanel } from './components/GestureDebugPanel'
 import { HandOverlay } from './components/HandOverlay'
 import { useCamera } from './hooks/useCamera'
+import { useGestureDetection } from './hooks/useGestureDetection'
 import { useHandTracking } from './hooks/useHandTracking'
 
 const VISION_STATUS_LABEL: Record<string, string> = {
@@ -14,6 +16,7 @@ export default function App() {
   const { start: onStart, ...cameraState } = useCamera()
   const videoRef = useRef<HTMLVideoElement>(null)
   const { handsCount, visionFps, status: handStatus, registerSink } = useHandTracking(videoRef)
+  const gesture = useGestureDetection(registerSink)
 
   const cameraLive = cameraState.status === 'ready'
   const visionLive = handStatus === 'ready' && cameraLive
@@ -48,6 +51,8 @@ export default function App() {
             <span className="readout-value">{visionLive ? handsCount : '-'}</span>
           </div>
         </section>
+
+        <GestureDebugPanel result={gesture} />
       </main>
     </div>
   )

@@ -265,6 +265,122 @@ body {
   margin-top: 14px;
 }
 
+/* ---------- Gesture debug panel ---------- */
+
+.gesture-debug {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gesture-debug-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.gesture-debug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.hand-card {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+.hand-card-title {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.hand-card-empty {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.finger-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.finger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.finger-row-label {
+  color: var(--text-dim);
+}
+
+.finger-row-mark {
+  font-variant-numeric: tabular-nums;
+  min-width: 1.5em;
+  text-align: right;
+}
+
+.finger-row-mark.is-fail {
+  filter: grayscale(0.2);
+}
+
+.gesture-debug-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.gesture-debug-label {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.gesture-debug-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.gesture-detection-badge {
+  align-self: flex-start;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.gesture-detection-badge.is-ready {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: var(--ok);
+  color: var(--ok);
+  box-shadow: 0 0 18px rgba(74, 222, 128, 0.25);
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 600px) {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import type { HandLandmarker } from '@mediapipe/tasks-vision'
-import type { HandLandmarks, HandLandmarksSink, HandTrackingState } from '../types/hand'
+import type { HandLandmarker, HandLandmarkerResult } from '@mediapipe/tasks-vision'
+import type { HandFrame, HandFrameSink, HandTrackingState } from '../types/hand'
 import { getHandLandmarker } from '../vision/handLandmarker'
 
 const INITIAL_STATE: HandTrackingState = {
@@ -21,7 +21,7 @@ export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
   const [state, setState] = useState<HandTrackingState>(INITIAL_STATE)
 
   const landmarkerRef = useRef<HandLandmarker | null>(null)
-  const sinkRef = useRef<HandLandmarksSink | null>(null)
+  const sinksRef = useRef<HandFrameSink[]>([])
   const detectionCountRef = useRef(0)
   const fpsWindowStartRef = useRef(0)
   const lastInferenceRef = useRef(0)
@@ -29,8 +29,18 @@ export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
   const nextIntervalRef = useRef<number>(BASE_INTERVAL_MS)
   const isReady = state.status === 'ready'
 
-  const registerSink = useCallback((sink: HandLandmarksSink) => {
-    sinkRef.current = sink
+  const registerSink = useCallback((sink: HandFrameSink) => {
+    sinksRef.current.push(sink)
+    return () => {
+      sinksRef.current = sinksRef.current.filter((registered) => registered !== sink)
+    }
+  }, [])
+
+  const buildFrame = useCallback((result: HandLandmarkerResult): HandFrame => {
+    return result.landmarks.map((landmarks, index) => ({
+      landmarks,
+      handedness: result.handedness?.[index]?.[0]?.categoryName ?? `Hand ${index + 1}`,
+    }))
   }, [])
 
   useEffect(() => {
@@ -124,11 +134,13 @@ export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
             const cost = performance.now() - t0
             nextIntervalRef.current = cost >= HEAVY_THRESHOLD_MS ? HEAVY_INTERVAL_MS : BASE_INTERVAL_MS
 
-            const hands: HandLandmarks | null = result.landmarks.length > 0 ? result.landmarks : null
-            sinkRef.current?.(hands)
+            const frame = buildFrame(result)
+            for (const sink of sinksRef.current) {
+              sink(frame)
+            }
             updateVisionFps(now)
 
-            const detected = hands?.length ?? 0
+            const detected = frame.length
             setState((prev) =>
               prev.handsCount === detected ? prev : { ...prev, handsCount: detected },
             )
@@ -141,7 +153,7 @@ export function useHandTracking(videoRef: RefObject<HTMLVideoElement>) {
 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [isReady, videoRef])
+  }, [buildFrame, isReady, videoRef])
 
   return { ...state, registerSink }
 }
