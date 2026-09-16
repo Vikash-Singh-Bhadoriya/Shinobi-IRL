@@ -5,8 +5,8 @@ import { renderShadowCloneFrame } from './cloneRenderer'
 
 const SPAWN_MS = 1400
 const CLONE_LIFETIME_MS = 90000
-const ENDING_MS = 500
-const COOLDOWN_MS = 3000
+const DISMISS_MS = 500
+const COOLDOWN_MS = 1200
 const FRAME_INTERVAL_MS = 1000 / 30
 
 function createClones(): ShadowClone[] {
@@ -31,7 +31,7 @@ export class ShadowCloneEffect {
   private cooldownTimer = 0
   private lastRenderAt = 0
   private endingStartedAt = 0
-  private status: ShadowCloneEffectStatus = 'IDLE'
+  private status: ShadowCloneEffectStatus = 'NO_CLONES'
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -46,13 +46,18 @@ export class ShadowCloneEffect {
     this.onStatusChange = onStatusChange
   }
 
-  setGestureReady(ready: boolean) {
-    if (ready) {
-      if (!this.active && performance.now() >= this.cooldownUntil) this.setStatus('READY')
-      if (!this.active && performance.now() >= this.cooldownUntil) this.activate()
+  toggle() {
+    const now = performance.now()
+    if (now < this.cooldownUntil || this.status === 'DISMISSING') return
+    if (this.active) {
+      this.beginDismissal(now)
       return
     }
-    if (!this.active && performance.now() >= this.cooldownUntil) this.setStatus('IDLE')
+    this.activate(now)
+  }
+
+  getCloneCount() {
+    return this.clones.length
   }
 
   destroy() {
@@ -61,13 +66,18 @@ export class ShadowCloneEffect {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
   }
 
-  private activate() {
+  private activate(now: number) {
     this.active = true
     this.clones = createClones()
-    this.startedAt = performance.now()
+    this.startedAt = now
     this.lastRenderAt = 0
     this.setStatus('SPAWNING')
     this.animationFrame = requestAnimationFrame(this.render)
+  }
+
+  private beginDismissal(now: number) {
+    this.endingStartedAt = now
+    this.setStatus('DISMISSING')
   }
 
   private setStatus(status: ShadowCloneEffectStatus) {
@@ -94,13 +104,12 @@ export class ShadowCloneEffect {
     const elapsed = now - this.startedAt
     if (elapsed >= SPAWN_MS && this.status === 'SPAWNING') this.setStatus('ACTIVE')
     if (elapsed >= CLONE_LIFETIME_MS && this.status === 'ACTIVE') {
-      this.endingStartedAt = now
-      this.setStatus('ENDING')
+      this.beginDismissal(now)
     }
 
     const animationElapsed = Math.min(elapsed, SPAWN_MS)
     const fadeProgress =
-      this.status === 'ENDING' ? Math.min(1, (now - this.endingStartedAt) / ENDING_MS) : 0
+      this.status === 'DISMISSING' ? Math.min(1, (now - this.endingStartedAt) / DISMISS_MS) : 0
     const frames = this.clones.map((clone) => {
       const frame = animateClone(clone, animationElapsed)
       return { ...frame, opacity: frame.opacity * (1 - fadeProgress) }
@@ -116,17 +125,22 @@ export class ShadowCloneEffect {
       fadeProgress,
     )
 
-    if (this.status === 'SPAWNING' || this.status === 'ACTIVE' || fadeProgress < 1) {
+    if (
+      this.status === 'SPAWNING' ||
+      this.status === 'ACTIVE' ||
+      (this.status === 'DISMISSING' && fadeProgress < 1)
+    ) {
       this.animationFrame = requestAnimationFrame(this.render)
       return
     }
 
     this.ctx.clearRect(0, 0, width, height)
     this.active = false
+    this.clones = []
     this.cooldownUntil = now + COOLDOWN_MS
     this.setStatus('COOLDOWN')
     this.cooldownTimer = window.setTimeout(() => {
-      if (!this.active && performance.now() >= this.cooldownUntil) this.setStatus('IDLE')
+      if (!this.active && performance.now() >= this.cooldownUntil) this.setStatus('NO_CLONES')
     }, COOLDOWN_MS)
   }
 }

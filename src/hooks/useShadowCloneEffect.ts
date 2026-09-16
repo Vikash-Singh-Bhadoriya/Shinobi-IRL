@@ -10,7 +10,9 @@ export function useShadowCloneEffect(
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const effectRef = useRef<ShadowCloneEffect | null>(null)
-  const [status, setStatus] = useState<ShadowCloneEffectStatus>('IDLE')
+  const wasGestureReadyRef = useRef(false)
+  const [gestureEdge, setGestureEdge] = useState<'NEW' | 'HOLD'>('HOLD')
+  const [status, setStatus] = useState<ShadowCloneEffectStatus>('NO_CLONES')
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -25,8 +27,18 @@ export function useShadowCloneEffect(
   }, [canvasSourceRef])
 
   useEffect(() => {
-    effectRef.current?.setGestureReady(gestureState === 'SHADOW_CLONE_READY')
+    const ready = gestureState === 'SHADOW_CLONE_READY'
+    const edge = ready && !wasGestureReadyRef.current
+    wasGestureReadyRef.current = ready
+    setGestureEdge(edge ? 'NEW' : 'HOLD')
+    if (edge) effectRef.current?.toggle()
   }, [gestureState])
 
-  return { canvasRef, status }
+  return {
+    canvasRef,
+    status,
+    gestureEdge,
+    cooldown: status === 'COOLDOWN',
+    cloneCount: effectRef.current?.getCloneCount() ?? 0,
+  }
 }

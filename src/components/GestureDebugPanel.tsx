@@ -2,6 +2,10 @@ import type { GestureResult, HandGestureDebug } from '../types/gesture'
 
 interface GestureDebugPanelProps {
   result: GestureResult
+  effectStatus: string
+  gestureEdge: 'NEW' | 'HOLD'
+  cooldown: boolean
+  cloneCount: number
 }
 
 interface HandCardProps {
@@ -40,7 +44,7 @@ function HandCard({ title, hand }: HandCardProps) {
   )
 }
 
-export function GestureDebugPanel({ result }: GestureDebugPanelProps) {
+export function GestureDebugPanel({ result, effectStatus, gestureEdge, cooldown, cloneCount }: GestureDebugPanelProps) {
   const stabilityProgress = Math.min(
     100,
     Math.round((result.debug.stabilityElapsedMs / 500) * 100),
@@ -78,6 +82,27 @@ export function GestureDebugPanel({ result }: GestureDebugPanelProps) {
 
       <div className={`gesture-detection-badge ${result.detected ? 'is-ready' : ''}`}>
         {result.detected ? 'READY' : 'NOT READY'}
+      </div>
+
+      <div className="gesture-debug-row">
+        <span className="gesture-debug-label">Gesture detected</span>
+        <span className="gesture-debug-value">{result.detected ? 'YES' : 'NO'}</span>
+      </div>
+      <div className="gesture-debug-row">
+        <span className="gesture-debug-label">Gesture edge</span>
+        <span className="gesture-debug-value">{gestureEdge}</span>
+      </div>
+      <div className="gesture-debug-row">
+        <span className="gesture-debug-label">Clone count</span>
+        <span className="gesture-debug-value">{cloneCount}</span>
+      </div>
+      <div className="gesture-debug-row">
+        <span className="gesture-debug-label">State</span>
+        <span className="gesture-debug-value">{effectStatus === 'COOLDOWN' ? 'NO_CLONES' : effectStatus}</span>
+      </div>
+      <div className="gesture-debug-row">
+        <span className="gesture-debug-label">Cooldown</span>
+        <span className="gesture-debug-value">{cooldown ? 'YES' : 'NO'}</span>
       </div>
     </section>
   )

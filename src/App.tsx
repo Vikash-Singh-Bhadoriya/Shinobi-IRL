@@ -94,7 +94,15 @@ export default function App() {
           </div>
         </section>}
 
-        {debugMode && <GestureDebugPanel result={gesture} />}
+        {debugMode && (
+          <GestureDebugPanel
+            result={gesture}
+            effectStatus={shadowCloneEffect.status}
+            gestureEdge={shadowCloneEffect.gestureEdge}
+            cooldown={shadowCloneEffect.cooldown}
+            cloneCount={shadowCloneEffect.cloneCount}
+          />
+        )}
         {debugMode && <RasenganDebugPanel result={rasengan.result} />}
         {debugMode && <MagicCircleDebugPanel result={magicCircle.result} />}
       </main>
