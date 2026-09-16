@@ -70,7 +70,7 @@ export default function App() {
             aria-hidden="true"
           />
           <canvas ref={segmentation.personCanvasRef} className="person-mask-canvas" aria-hidden="true" />
-          <HandOverlay registerSink={registerSink} />
+          <HandOverlay registerSink={registerSink} showDebug={debugMode} />
         </CameraView>
 
         {debugMode && <section className="vision-readouts" aria-label="Vision diagnostics">

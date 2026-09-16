@@ -4,9 +4,10 @@ import { HAND_CONNECTIONS } from '../vision/handLandmarker'
 
 interface HandOverlayProps {
   registerSink: (sink: HandFrameSink) => () => void
+  showDebug?: boolean
 }
 
-export function HandOverlay({ registerSink }: HandOverlayProps) {
+export function HandOverlay({ registerSink, showDebug = false }: HandOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export function HandOverlay({ registerSink }: HandOverlayProps) {
       if (canvas.height !== height) canvas.height = height
 
       ctx.clearRect(0, 0, width, height)
-      if (frame.length === 0) return
+      if (!showDebug || frame.length === 0) return
 
       const point = (l: { x: number; y: number }) => ({ x: l.x * width, y: l.y * height })
 
@@ -58,7 +59,7 @@ export function HandOverlay({ registerSink }: HandOverlayProps) {
       unsubscribe()
       ctx.clearRect(0, 0, canvas.width, canvas.height)
     }
-  }, [registerSink])
+  }, [registerSink, showDebug])
 
   return <canvas ref={canvasRef} className="hand-overlay" width={1} height={1} aria-hidden="true" />
 }

@@ -245,29 +245,66 @@ export class MagicCircleRenderer {
 
     this.ctx.save()
     this.ctx.globalAlpha = fade * (0.62 + charge * 0.38)
-    this.ctx.globalCompositeOperation = 'lighter'
     this.ctx.translate(centerX, centerY)
     this.ctx.rotate(this.visibleRotation)
     this.ctx.scale(pulse, pulse)
 
-    const glow = this.ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.8)
-    glow.addColorStop(0, colorWithAlpha(primaryGlow, 0.22 * glowIntensity))
-    glow.addColorStop(0.35, colorWithAlpha(mixColor(primaryGlow, secondaryGlow, 0.5), 0.14 * glowIntensity))
-    glow.addColorStop(0.72, colorWithAlpha(secondaryGlow, 0.08 * glowIntensity))
+    this.drawCoreEnergy(radius, palette, charge)
+
+    this.ctx.save()
+    this.ctx.globalCompositeOperation = 'lighter'
+    const glow = this.ctx.createRadialGradient(0, 0, radius * 0.15, 0, 0, radius * 1.8)
+    glow.addColorStop(0, colorWithAlpha(primaryGlow, 0.24 * glowIntensity))
+    glow.addColorStop(0.32, colorWithAlpha(mixColor(primaryGlow, secondaryGlow, 0.5), 0.18 * glowIntensity))
+    glow.addColorStop(0.72, colorWithAlpha(secondaryGlow, 0.09 * glowIntensity))
     glow.addColorStop(1, colorWithAlpha(secondaryGlow, 0))
     this.ctx.fillStyle = glow
     this.ctx.beginPath()
     this.ctx.arc(0, 0, radius * 1.8, 0, TAU)
     this.ctx.fill()
+    this.ctx.restore()
 
-    this.drawLayer(radius * 1.15, now / 9000, 0.3, 1.8, 0.92, palette.primary, palette.secondary, 0)
+    this.drawLayer(radius * 1.15, now / 9000, 0.34, 1.8, 0.92, palette.primary, palette.secondary, 0)
     this.ctx.rotate(rotation - this.visibleRotation)
-    this.drawLayer(radius, now / 4200, 0.78, 1.25, 0.88, palette.secondary, palette.primary, 1)
-    this.drawLayer(radius * 0.85, -now / 3000, 1, 0.9, 0.78, palette.primary, palette.secondary, 0)
+    this.drawLayer(radius, now / 4200, 0.72, 1.25, 0.88, palette.secondary, palette.primary, 1)
+    this.drawLayer(radius * 0.85, -now / 3000, 0.86, 0.9, 0.78, palette.primary, palette.secondary, 0)
     this.drawInnerPattern(radius * 0.62, now, palette)
     this.drawParticles(radius, now, delta, palette)
     this.drawArcTrails(radius, now, palette, arcBlend)
     this.drawHandInteraction(radius, now, palette)
+    this.ctx.restore()
+  }
+
+  private drawCoreEnergy(radius: number, palette: MagicCirclePalette, charge: number) {
+    const hotCore = this.ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.7)
+    const hotMix = mixColor(WHITE, palette.primary, 0.75)
+    const colorMix = mixColor(palette.primary, palette.secondary, 0.5)
+    hotCore.addColorStop(0, colorWithAlpha(WHITE, 0.96 + this.energy * 0.08))
+    hotCore.addColorStop(0.15, colorWithAlpha(WHITE, 0.82))
+    hotCore.addColorStop(0.3, colorWithAlpha(hotMix, 0.8 + charge * 0.12))
+    hotCore.addColorStop(0.54, colorWithAlpha(colorMix, 0.7))
+    hotCore.addColorStop(0.76, colorWithAlpha(palette.secondary, 0.28 + this.energy * 0.15))
+    hotCore.addColorStop(1, colorWithAlpha(palette.primary, 0))
+
+    this.ctx.save()
+    this.ctx.globalCompositeOperation = 'screen'
+    this.ctx.fillStyle = hotCore
+    this.ctx.beginPath()
+    this.ctx.arc(0, 0, radius * 0.7, 0, TAU)
+    this.ctx.fill()
+    this.ctx.restore()
+
+    const hotSpot = this.ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.18)
+    hotSpot.addColorStop(0, colorWithAlpha(WHITE, 0.9 + this.energy * 0.15))
+    hotSpot.addColorStop(0.35, colorWithAlpha(WHITE, 0.55 + this.energy * 0.25))
+    hotSpot.addColorStop(1, colorWithAlpha(WHITE, 0))
+
+    this.ctx.save()
+    this.ctx.globalCompositeOperation = 'lighter'
+    this.ctx.fillStyle = hotSpot
+    this.ctx.beginPath()
+    this.ctx.arc(0, 0, radius * 0.18, 0, TAU)
+    this.ctx.fill()
     this.ctx.restore()
   }
 
@@ -284,8 +321,10 @@ export class MagicCircleRenderer {
     this.ctx.save()
     this.ctx.rotate(rotation)
     this.ctx.scale(scale, scale)
-    this.ctx.globalAlpha *= opacity
+    this.ctx.globalAlpha = opacity * (0.55 + this.energy * 0.35)
     this.ctx.strokeStyle = colorWithAlpha(layerIndex % 2 === 0 ? primary : secondary, opacity)
+    this.ctx.shadowColor = colorWithAlpha(layerIndex % 2 === 0 ? primary : secondary, 0.55)
+    this.ctx.shadowBlur = radius * 0.18
     this.ctx.lineWidth = Math.max(1, radius * 0.012 * lineWidth)
     this.ctx.setLineDash([radius * 0.08, radius * 0.035])
     this.ctx.beginPath()
@@ -304,16 +343,47 @@ export class MagicCircleRenderer {
       const x = Math.cos(angle) * radius
       const y = Math.sin(angle) * radius
       const runeColor = index % 2 === 0 ? palette.primary : palette.secondary
+      const runeSize = radius * 0.1
+
       this.ctx.save()
       this.ctx.translate(x, y)
       this.ctx.rotate(angle + Math.PI / 2)
-      this.ctx.strokeStyle = colorWithAlpha(runeColor, 0.9)
+      this.ctx.strokeStyle = colorWithAlpha(runeColor, 0.72)
+      this.ctx.shadowColor = colorWithAlpha(runeColor, 0.7)
+      this.ctx.shadowBlur = radius * 0.16
+
       this.ctx.beginPath()
-      this.ctx.moveTo(-radius * 0.035, radius * 0.035)
-      this.ctx.lineTo(0, -radius * 0.05)
-      this.ctx.lineTo(radius * 0.035, radius * 0.035)
-      this.ctx.moveTo(-radius * 0.035, radius * 0.01)
-      this.ctx.lineTo(radius * 0.035, radius * 0.01)
+      switch (index % 5) {
+        case 0:
+          this.ctx.moveTo(-runeSize, runeSize)
+          this.ctx.lineTo(0, -runeSize)
+          this.ctx.lineTo(runeSize, runeSize)
+          this.ctx.moveTo(-runeSize * 0.45, 0)
+          this.ctx.lineTo(runeSize * 0.45, 0)
+          break
+        case 1:
+          this.ctx.arc(0, 0, runeSize * 0.7, Math.PI * 0.15, Math.PI * 1.85)
+          break
+        case 2:
+          this.ctx.moveTo(-runeSize, -runeSize * 0.25)
+          this.ctx.lineTo(runeSize, runeSize * 0.25)
+          this.ctx.moveTo(-runeSize, runeSize * 0.25)
+          this.ctx.lineTo(runeSize, -runeSize * 0.25)
+          break
+        case 3:
+          this.ctx.moveTo(-runeSize, 0)
+          this.ctx.lineTo(runeSize, 0)
+          this.ctx.moveTo(0, -runeSize)
+          this.ctx.lineTo(0, runeSize)
+          break
+        default:
+          this.ctx.moveTo(-runeSize, runeSize)
+          this.ctx.lineTo(0, -runeSize)
+          this.ctx.lineTo(runeSize, runeSize)
+          this.ctx.moveTo(-runeSize * 0.25, -runeSize * 0.35)
+          this.ctx.lineTo(runeSize * 0.25, runeSize * 0.35)
+          break
+      }
       this.ctx.stroke()
       this.ctx.restore()
     }
@@ -321,6 +391,8 @@ export class MagicCircleRenderer {
   }
 
   private drawParticles(radius: number, now: number, delta: number, palette: MagicCirclePalette) {
+    this.ctx.save()
+    this.ctx.globalCompositeOperation = 'lighter'
     for (const particle of this.particles) {
       const angle = particle.angle + now * particle.speed * (1 + this.energy * 4) + particle.phase * 0.01
       const orbit = radius * particle.radius
@@ -331,30 +403,41 @@ export class MagicCircleRenderer {
       this.ctx.arc(Math.cos(angle) * orbit, Math.sin(angle) * orbit, particle.size, 0, TAU)
       this.ctx.fill()
     }
+    this.ctx.restore()
   }
 
   private drawArcTrails(radius: number, now: number, palette: MagicCirclePalette, arcBlend: Rgb) {
+    this.ctx.save()
+    this.ctx.globalCompositeOperation = 'lighter'
     this.ctx.lineCap = 'round'
     this.ctx.lineWidth = Math.max(1, radius * 0.012)
     for (const trail of this.arcTrails) {
       const angle = trail.phase + now * trail.speed * (1 + this.energy * 3)
       const arcColor = trail.tint === 0 ? palette.secondary : arcBlend
-      this.ctx.strokeStyle = colorWithAlpha(arcColor, 0.2 + this.energy * 0.5)
+      this.ctx.strokeStyle = colorWithAlpha(arcColor, 0.22 + this.energy * 0.5)
+      this.ctx.shadowColor = colorWithAlpha(arcColor, 0.45 + this.energy * 0.2)
+      this.ctx.shadowBlur = radius * 0.12
       this.ctx.beginPath()
       this.ctx.arc(0, 0, radius * trail.radius, angle, angle + trail.span + this.energy * 0.35)
       this.ctx.stroke()
     }
+    this.ctx.restore()
   }
 
   private drawHandInteraction(radius: number, now: number, palette: MagicCirclePalette) {
     const interactionRadius = radius * (0.18 + this.energy * 0.12)
     const interactionColor = mixColor(palette.primary, palette.secondary, 0.5)
-    this.ctx.strokeStyle = colorWithAlpha(interactionColor, 0.35 + this.energy * 0.5)
+    this.ctx.save()
+    this.ctx.globalCompositeOperation = 'lighter'
+    this.ctx.strokeStyle = colorWithAlpha(interactionColor, 0.28 + this.energy * 0.45)
+    this.ctx.shadowColor = colorWithAlpha(interactionColor, 0.58)
+    this.ctx.shadowBlur = radius * 0.1
     this.ctx.lineWidth = Math.max(1, radius * 0.009)
     this.ctx.setLineDash([radius * 0.03, radius * 0.05])
     this.ctx.beginPath()
     this.ctx.arc(0, 0, interactionRadius, now / 700, now / 700 + Math.PI * 1.25)
     this.ctx.stroke()
     this.ctx.setLineDash([])
+    this.ctx.restore()
   }
 }
