@@ -279,11 +279,11 @@ export class MagicCircleRenderer {
     const hotCore = this.ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.7)
     const hotMix = mixColor(WHITE, palette.primary, 0.75)
     const colorMix = mixColor(palette.primary, palette.secondary, 0.5)
-    hotCore.addColorStop(0, colorWithAlpha(WHITE, 0.96 + this.energy * 0.08))
-    hotCore.addColorStop(0.15, colorWithAlpha(WHITE, 0.82))
-    hotCore.addColorStop(0.3, colorWithAlpha(hotMix, 0.8 + charge * 0.12))
-    hotCore.addColorStop(0.54, colorWithAlpha(colorMix, 0.7))
-    hotCore.addColorStop(0.76, colorWithAlpha(palette.secondary, 0.28 + this.energy * 0.15))
+    hotCore.addColorStop(0, colorWithAlpha(WHITE, 0.16 + this.energy * 0.06))
+    hotCore.addColorStop(0.15, colorWithAlpha(WHITE, 0.12))
+    hotCore.addColorStop(0.3, colorWithAlpha(hotMix, 0.1 + charge * 0.04))
+    hotCore.addColorStop(0.54, colorWithAlpha(colorMix, 0.08))
+    hotCore.addColorStop(0.76, colorWithAlpha(palette.secondary, 0.06 + this.energy * 0.04))
     hotCore.addColorStop(1, colorWithAlpha(palette.primary, 0))
 
     this.ctx.save()
@@ -295,8 +295,8 @@ export class MagicCircleRenderer {
     this.ctx.restore()
 
     const hotSpot = this.ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.18)
-    hotSpot.addColorStop(0, colorWithAlpha(WHITE, 0.9 + this.energy * 0.15))
-    hotSpot.addColorStop(0.35, colorWithAlpha(WHITE, 0.55 + this.energy * 0.25))
+    hotSpot.addColorStop(0, colorWithAlpha(WHITE, 0.22 + this.energy * 0.08))
+    hotSpot.addColorStop(0.35, colorWithAlpha(WHITE, 0.14 + this.energy * 0.06))
     hotSpot.addColorStop(1, colorWithAlpha(WHITE, 0))
 
     this.ctx.save()
