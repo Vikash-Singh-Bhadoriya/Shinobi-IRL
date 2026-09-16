@@ -1,4 +1,4 @@
-import type { RasenganDetection } from './rasenganTypes'
+import type { RasenganDetection, RasenganInstance } from './rasenganTypes'
 
 const FADE_MS = 500
 
@@ -20,14 +20,22 @@ function createParticles(): Particle[] {
   }))
 }
 
+function colorWithAlpha(color: string, alpha: number): string {
+  const value = color.replace('#', '')
+  const red = Number.parseInt(value.slice(0, 2), 16)
+  const green = Number.parseInt(value.slice(2, 4), 16)
+  const blue = Number.parseInt(value.slice(4, 6), 16)
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
+}
+
 export class RasenganRenderer {
   private readonly canvas: HTMLCanvasElement
   private readonly ctx: CanvasRenderingContext2D
   private readonly particles = createParticles()
   private animationFrame = 0
-  private latest: RasenganDetection | null = null
-  private lastVisible: RasenganDetection | null = null
-  private missingSince: number | null = null
+  private latest: RasenganInstance[] = []
+  private readonly lastVisible = new Map<string, RasenganInstance>()
+  private readonly missingSince = new Map<string, number>()
 
   constructor(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d')
@@ -37,16 +45,17 @@ export class RasenganRenderer {
     this.animationFrame = requestAnimationFrame(this.render)
   }
 
-  setDetection(detection: RasenganDetection) {
-    this.latest = detection
-    const handLost = detection.state === 'LOST_HAND_GRACE' || detection.state === 'FADE_OUT'
-    if (handLost) {
-      if (this.missingSince === null) this.missingSince = performance.now()
-    } else if (detection.palmPosition) {
-      this.lastVisible = detection
-      this.missingSince = null
+  setDetections(instances: RasenganInstance[]) {
+    this.latest = instances
+    for (const instance of instances) {
+      const handLost = instance.detection.state === 'LOST_HAND_GRACE' || instance.detection.state === 'FADE_OUT'
+      if (handLost) {
+        if (!this.missingSince.has(instance.id)) this.missingSince.set(instance.id, performance.now())
+      } else if (instance.detection.palmPosition) {
+        this.lastVisible.set(instance.id, instance)
+        this.missingSince.delete(instance.id)
+      }
     }
-    if (detection.palmPosition && !handLost) this.lastVisible = detection
   }
 
   destroy() {
@@ -61,21 +70,24 @@ export class RasenganRenderer {
       if (this.canvas.width !== width) this.canvas.width = width
       if (this.canvas.height !== height) this.canvas.height = height
       this.ctx.clearRect(0, 0, width, height)
-      const detection = this.latest
-      const visible = detection?.palmPosition ? detection : this.lastVisible
-      const missingFor = this.missingSince === null ? 0 : now - this.missingSince
-      const graceOpacity = missingFor > 0 ? 0.72 : 1
-      const fade = missingFor <= 1000 ? graceOpacity : Math.max(0, 1 - (missingFor - 1000) / FADE_MS)
-      if (detection && (detection.state === 'THROW_DETECTED' || detection.state === 'PROJECTILE' || detection.state === 'IMPACT')) {
-        this.drawProjectile(detection, width, height, now)
-      } else if (visible?.palmPosition && fade > 0 && (visible.active || visible.state === 'CHARGING' || visible.state === 'LOST_HAND_GRACE')) {
-        this.drawRasengan(visible, width, height, now, fade)
+      for (const instance of this.latest) {
+        const detection = instance.detection
+        const visible = detection.palmPosition ? instance : this.lastVisible.get(instance.id)
+        const missingAt = this.missingSince.get(instance.id)
+        const missingFor = missingAt === undefined ? 0 : now - missingAt
+        const graceOpacity = missingFor > 0 ? 0.72 : 1
+        const fade = missingFor <= 1000 ? graceOpacity : Math.max(0, 1 - (missingFor - 1000) / FADE_MS)
+        if (detection.state === 'THROW_DETECTED' || detection.state === 'PROJECTILE' || detection.state === 'IMPACT') {
+          this.drawProjectile(detection, instance.color, width, height, now)
+        } else if (visible?.detection.palmPosition && fade > 0 && (visible.detection.active || visible.detection.state === 'CHARGING' || visible.detection.state === 'LOST_HAND_GRACE')) {
+          this.drawRasengan(visible.detection, instance.color, width, height, now, fade)
+        }
       }
     }
     this.animationFrame = requestAnimationFrame(this.render)
   }
 
-  private drawRasengan(detection: RasenganDetection, width: number, height: number, now: number, fade: number) {
+  private drawRasengan(detection: RasenganDetection, color: string, width: number, height: number, now: number, fade: number) {
     const { x, y } = detection.palmPosition as { x: number; y: number }
     const centerX = x * width
     const centerY = y * height
@@ -92,9 +104,9 @@ export class RasenganRenderer {
     this.ctx.scale(pulse, pulse)
 
     const glow = this.ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 2.2)
-    glow.addColorStop(0, 'rgba(125, 230, 255, 0.5)')
-    glow.addColorStop(0.4, 'rgba(31, 145, 255, 0.2)')
-    glow.addColorStop(1, 'rgba(0, 72, 255, 0)')
+    glow.addColorStop(0, colorWithAlpha(color, 0.5))
+    glow.addColorStop(0.4, colorWithAlpha(color, 0.2))
+    glow.addColorStop(1, colorWithAlpha(color, 0))
     this.ctx.fillStyle = glow
     this.ctx.beginPath()
     this.ctx.arc(0, 0, radius * 2.2, 0, Math.PI * 2)
@@ -102,7 +114,7 @@ export class RasenganRenderer {
 
     this.ctx.save()
     this.ctx.globalAlpha = 0.65
-    this.ctx.strokeStyle = 'rgba(77, 195, 255, 0.7)'
+    this.ctx.strokeStyle = colorWithAlpha(color, 0.7)
     this.ctx.lineWidth = Math.max(1, radius * 0.06)
     this.ctx.beginPath()
     this.ctx.arc(0, radius * 0.72, radius * 0.72, Math.PI * 0.12, Math.PI * 0.88)
@@ -111,15 +123,15 @@ export class RasenganRenderer {
 
     const sphere = this.ctx.createRadialGradient(-radius * 0.28, -radius * 0.32, radius * 0.05, 0, 0, radius)
     sphere.addColorStop(0, 'rgba(235, 253, 255, 0.98)')
-    sphere.addColorStop(0.18, 'rgba(100, 222, 255, 0.98)')
-    sphere.addColorStop(0.58, 'rgba(22, 107, 244, 0.95)')
-    sphere.addColorStop(1, 'rgba(5, 20, 125, 0.98)')
+    sphere.addColorStop(0.18, colorWithAlpha(color, 0.98))
+    sphere.addColorStop(0.58, colorWithAlpha(color, 0.95))
+    sphere.addColorStop(1, colorWithAlpha(color, 0.98))
     this.ctx.fillStyle = sphere
     this.ctx.beginPath()
     this.ctx.arc(0, 0, radius, 0, Math.PI * 2)
     this.ctx.fill()
 
-    this.ctx.strokeStyle = 'rgba(169, 239, 255, 0.82)'
+    this.ctx.strokeStyle = colorWithAlpha(color, 0.82)
     this.ctx.lineWidth = Math.max(1.2, radius * 0.045)
     for (let layer = 0; layer < 3; layer += 1) {
       this.ctx.save()
@@ -134,13 +146,13 @@ export class RasenganRenderer {
       const angle = particle.angle + now * particle.speed + particle.phase * 0.01
       const gather = detection.active ? 1 : Math.max(0.2, progress)
       const orbit = radius * particle.radius * gather
-      this.ctx.fillStyle = `rgba(112, 225, 255, ${0.45 + Math.sin(angle * 2) * 0.2})`
+      this.ctx.fillStyle = colorWithAlpha(color, 0.45 + Math.sin(angle * 2) * 0.2)
       this.ctx.beginPath()
       this.ctx.arc(Math.cos(angle) * orbit, Math.sin(angle) * orbit, particle.size, 0, Math.PI * 2)
       this.ctx.fill()
     }
 
-    this.ctx.fillStyle = 'rgba(123, 226, 255, 0.9)'
+    this.ctx.fillStyle = colorWithAlpha(color, 0.9)
     for (let index = 0; index < 8; index += 1) {
       const angle = now / 420 + index * Math.PI / 4
       const orbit = radius * (1.25 + Math.sin(now / 240 + index) * 0.12)
@@ -151,7 +163,7 @@ export class RasenganRenderer {
     this.ctx.restore()
   }
 
-  private drawProjectile(detection: RasenganDetection, width: number, height: number, now: number) {
+  private drawProjectile(detection: RasenganDetection, color: string, width: number, height: number, now: number) {
     const position = detection.projectilePosition
     if (!position) return
     const scale = Math.min(width, height)
@@ -167,12 +179,12 @@ export class RasenganRenderer {
     if (impact) {
       const ringRadius = radius * (1 + impactProgress * 3.5)
       this.ctx.globalAlpha = 0.8 * (1 - impactProgress)
-      this.ctx.strokeStyle = 'rgba(157, 241, 255, 0.95)'
+      this.ctx.strokeStyle = colorWithAlpha(color, 0.95)
       this.ctx.lineWidth = Math.max(2, radius * 0.08) * (1 - impactProgress * 0.4)
       this.ctx.beginPath()
       this.ctx.arc(centerX, centerY, ringRadius, 0, Math.PI * 2)
       this.ctx.stroke()
-      this.ctx.fillStyle = `rgba(147, 235, 255, ${0.55 * (1 - impactProgress)})`
+      this.ctx.fillStyle = colorWithAlpha(color, 0.55 * (1 - impactProgress))
       this.ctx.beginPath()
       this.ctx.arc(centerX, centerY, radius * (1.4 - impactProgress * 0.6), 0, Math.PI * 2)
       this.ctx.fill()
@@ -189,7 +201,7 @@ export class RasenganRenderer {
       const particleX = centerX - directionX * radius * trail * 2.5 - directionY * wobble
       const particleY = centerY - directionY * radius * trail * 2.5 + directionX * wobble
       this.ctx.globalAlpha = 0.65 * (1 - trail)
-      this.ctx.fillStyle = index % 3 === 0 ? 'rgba(236, 253, 255, 0.9)' : 'rgba(62, 172, 255, 0.8)'
+      this.ctx.fillStyle = index % 3 === 0 ? 'rgba(236, 253, 255, 0.9)' : colorWithAlpha(color, 0.8)
       this.ctx.beginPath()
       this.ctx.arc(particleX, particleY, Math.max(1, radius * (0.05 + (1 - trail) * 0.05)), 0, Math.PI * 2)
       this.ctx.fill()
@@ -198,8 +210,8 @@ export class RasenganRenderer {
     this.ctx.globalAlpha = 0.8
     const glow = this.ctx.createRadialGradient(centerX, centerY, radius * 0.15, centerX, centerY, radius * 2.8)
     glow.addColorStop(0, 'rgba(220, 252, 255, 0.8)')
-    glow.addColorStop(0.3, 'rgba(53, 180, 255, 0.36)')
-    glow.addColorStop(1, 'rgba(0, 65, 255, 0)')
+    glow.addColorStop(0.3, colorWithAlpha(color, 0.36))
+    glow.addColorStop(1, colorWithAlpha(color, 0))
     this.ctx.fillStyle = glow
     this.ctx.beginPath()
     this.ctx.arc(centerX, centerY, radius * 2.8, 0, Math.PI * 2)
@@ -207,9 +219,9 @@ export class RasenganRenderer {
 
     const sphere = this.ctx.createRadialGradient(centerX - radius * 0.28, centerY - radius * 0.32, radius * 0.05, centerX, centerY, radius)
     sphere.addColorStop(0, 'rgba(255, 255, 255, 1)')
-    sphere.addColorStop(0.2, 'rgba(115, 229, 255, 1)')
-    sphere.addColorStop(0.62, 'rgba(25, 109, 250, 0.98)')
-    sphere.addColorStop(1, 'rgba(5, 20, 125, 1)')
+    sphere.addColorStop(0.2, colorWithAlpha(color, 1))
+    sphere.addColorStop(0.62, colorWithAlpha(color, 0.98))
+    sphere.addColorStop(1, colorWithAlpha(color, 1))
     this.ctx.fillStyle = sphere
     this.ctx.beginPath()
     this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)

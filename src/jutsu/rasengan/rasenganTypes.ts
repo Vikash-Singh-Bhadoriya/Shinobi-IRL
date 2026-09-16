@@ -1,5 +1,17 @@
 import type { HandFrame } from '../../types/hand'
 
+export type RasenganHand = 'left' | 'right'
+
+export interface RasenganTheme {
+  leftColor: string
+  rightColor: string
+}
+
+export const RASENGAN_THEME: RasenganTheme = {
+  leftColor: '#3B82F6',
+  rightColor: '#A855F7',
+}
+
 export type RasenganState =
   | 'SEARCHING'
   | 'CHARGING'
@@ -46,6 +58,13 @@ export interface RasenganDetection {
   projectilePosition: PalmPosition | null
   projectileProgress: number
   state: RasenganState
+}
+
+export interface RasenganInstance {
+  id: RasenganHand
+  hand: RasenganHand
+  color: string
+  detection: RasenganDetection
 }
 
 export interface RasenganDetector {

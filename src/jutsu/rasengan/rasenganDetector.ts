@@ -7,6 +7,7 @@ import type {
   RasenganDetector,
   RasenganState,
   RasenganVelocity,
+  RasenganHand,
 } from './rasenganTypes'
 
 const HISTORY_SIZE = 12
@@ -142,7 +143,7 @@ function getProjectilePosition(projectile: ProjectileSnapshot, now: number): Pal
   }
 }
 
-export function createRasenganDetector(): RasenganDetector {
+export function createRasenganDetector(targetHand: RasenganHand = 'right'): RasenganDetector {
   let samples: Sample[] = []
   let chargeStartedAt: number | null = null
   let stableSince: number | null = null
@@ -205,7 +206,9 @@ export function createRasenganDetector(): RasenganDetector {
         return lastResult
       }
 
-      const tracked = frame.find((candidate) => candidate.landmarks.length >= 21)
+      const tracked = frame.find((candidate) =>
+        candidate.landmarks.length >= 21 && candidate.handedness.toLowerCase() === targetHand,
+      )
       if (!tracked) {
         if (missingSince === null) missingSince = now
         const lostForMs = now - missingSince
@@ -233,13 +236,13 @@ export function createRasenganDetector(): RasenganDetector {
         return lastResult
       }
 
-      const hand = tracked.landmarks
+      const landmarks = tracked.landmarks
       missingSince = null
-      const open = isOpenPalm(hand)
-      const position = palmCenter(hand)
-      const size = palmSize(hand)
-      const rotation = palmRotation(hand)
-      const handVisible = hand.every((landmark) =>
+      const open = isOpenPalm(landmarks)
+      const position = palmCenter(landmarks)
+      const size = palmSize(landmarks)
+      const rotation = palmRotation(landmarks)
+      const handVisible = landmarks.every((landmark) =>
         Number.isFinite(landmark.x) &&
         Number.isFinite(landmark.y) &&
         landmark.x >= 0.015 &&
