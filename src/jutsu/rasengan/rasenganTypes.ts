@@ -4,6 +4,8 @@ export type RasenganState =
   | 'SEARCHING'
   | 'CHARGING'
   | 'ACTIVE_HOLD'
+  | 'ARMED'
+  | 'STRIKE_DETECTED'
   | 'THROW_DETECTED'
   | 'PROJECTILE'
   | 'IMPACT'
@@ -36,9 +38,11 @@ export interface RasenganDetection {
   lostForMs: number
   velocity: RasenganVelocity
   acceleration: number
+  deceleration?: number
   handScale: number
   throwConfidence: number
   throwDetected: boolean
+  handVisible?: boolean
   projectilePosition: PalmPosition | null
   projectileProgress: number
   state: RasenganState

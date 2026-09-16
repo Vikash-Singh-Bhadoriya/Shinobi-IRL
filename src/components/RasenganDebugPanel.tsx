@@ -20,7 +20,7 @@ export function RasenganDebugPanel({ result }: RasenganDebugPanelProps) {
         <span className="gesture-debug-value">{result.circularMotion ? 'YES' : 'NO'}</span>
       </div>
       <div className="gesture-debug-row">
-        <span className="gesture-debug-label">Throw Detected</span>
+        <span className="gesture-debug-label">Release Detected</span>
         <span className="gesture-debug-value">{result.throwDetected ? 'YES' : 'NO'}</span>
       </div>
       <div className="gesture-debug-row">
@@ -30,6 +30,10 @@ export function RasenganDebugPanel({ result }: RasenganDebugPanelProps) {
       <div className="gesture-debug-row">
         <span className="gesture-debug-label">Acceleration</span>
         <span className="gesture-debug-value">{result.acceleration.toFixed(2)}</span>
+      </div>
+      <div className="gesture-debug-row">
+        <span className="gesture-debug-label">Deceleration</span>
+        <span className="gesture-debug-value">{(result.deceleration ?? 0).toFixed(2)}</span>
       </div>
       <div className="gesture-debug-row">
         <span className="gesture-debug-label">Hand Scale</span>
@@ -53,6 +57,10 @@ export function RasenganDebugPanel({ result }: RasenganDebugPanelProps) {
       <div className="gesture-debug-row">
         <span className="gesture-debug-label">Throw Confidence</span>
         <span className="gesture-debug-value">{Math.round(result.throwConfidence * 100)}%</span>
+      </div>
+      <div className="gesture-debug-row">
+        <span className="gesture-debug-label">Hand Visible</span>
+        <span className="gesture-debug-value">{result.handVisible ? 'YES' : 'NO'}</span>
       </div>
       <div className="gesture-debug-row">
         <span className="gesture-debug-label">Projectile Position</span>

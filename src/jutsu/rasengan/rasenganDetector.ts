@@ -19,12 +19,19 @@ const IMPACT_MS = 400
 const COOLDOWN_MS = 2000
 const MIN_SWEEP = Math.PI * 1.15
 const MIN_DIRECTIONALITY = 0.45
-const THROW_CONFIDENCE_THRESHOLD = 0.62
-const THROW_ARM_DELAY_MS = 250
+const STABLE_ARM_MS = 500
+const STRIKE_CONFIDENCE_THRESHOLD = 0.65
+const STRIKE_HISTORY_SIZE = 10
+const STABLE_SPEED_MAX = 0.16
+const STOP_SPEED_MAX = 0.2
+const FAST_SPEED_MIN = 0.5
+const PEAK_SPEED_MIN = 0.7
+const DECELERATION_MIN = 0.8
 
 interface Sample extends PalmPosition {
   now: number
   scale: number
+  speed: number
 }
 
 interface MotionResult {
@@ -112,9 +119,11 @@ function emptyResult(state: RasenganState = 'SEARCHING', lostForMs = 0): Rasenga
     lostForMs,
     velocity: ZERO_VELOCITY,
     acceleration: 0,
+    deceleration: 0,
     handScale: 0,
     throwConfidence: 0,
     throwDetected: false,
+    handVisible: false,
     projectilePosition: null,
     projectileProgress: 0,
     state,
@@ -136,7 +145,8 @@ function getProjectilePosition(projectile: ProjectileSnapshot, now: number): Pal
 export function createRasenganDetector(): RasenganDetector {
   let samples: Sample[] = []
   let chargeStartedAt: number | null = null
-  let activatedAt: number | null = null
+  let stableSince: number | null = null
+  let armed = false
   let activated = false
   let missingSince: number | null = null
   let lastHand: HandSnapshot | null = null
@@ -148,7 +158,8 @@ export function createRasenganDetector(): RasenganDetector {
   const reset = () => {
     samples = []
     chargeStartedAt = null
-    activatedAt = null
+    stableSince = null
+    armed = false
     activated = false
     missingSince = null
     lastHand = null
@@ -160,7 +171,7 @@ export function createRasenganDetector(): RasenganDetector {
 
   const withLifecycle = (state: RasenganState, now: number, values: Partial<RasenganDetection> = {}): RasenganDetection => ({
     ...lastResult,
-    active: state === 'ACTIVE_HOLD' || state === 'CHARGING',
+    active: state === 'ACTIVE_HOLD' || state === 'ARMED' || state === 'CHARGING',
     state,
     throwDetected: false,
     ...values,
@@ -212,9 +223,11 @@ export function createRasenganDetector(): RasenganDetector {
           rotation: lastHand?.rotation ?? 0,
           palmSize: lastHand?.size ?? 0,
           handScale: lastHand?.size ?? 0,
+          deceleration: 0,
           palmOpen: false,
           circularMotion: false,
           lostForMs,
+          handVisible: false,
         })
         if (lostForMs > LOST_HAND_GRACE_MS + FADE_OUT_MS) reset()
         return lastResult
@@ -226,6 +239,14 @@ export function createRasenganDetector(): RasenganDetector {
       const position = palmCenter(hand)
       const size = palmSize(hand)
       const rotation = palmRotation(hand)
+      const handVisible = hand.every((landmark) =>
+        Number.isFinite(landmark.x) &&
+        Number.isFinite(landmark.y) &&
+        landmark.x >= 0.015 &&
+        landmark.x <= 0.985 &&
+        landmark.y >= 0.015 &&
+        landmark.y <= 0.985,
+      )
       const previous = samples[samples.length - 1]
       const previousPrevious = samples[samples.length - 2]
       const elapsed = previous ? Math.max(1, now - previous.now) : 1
@@ -241,8 +262,9 @@ export function createRasenganDetector(): RasenganDetector {
         ? distance(previous, previousPrevious) / Math.max(1, previous.now - previousPrevious.now)
         : 0
       const acceleration = previous ? Math.max(0, velocity.magnitude - previousVelocity) / elapsed * 1000 : 0
+      const deceleration = previous ? Math.max(0, previousVelocity - velocity.magnitude) / elapsed * 1000 : 0
       lastHand = { position, rotation, size }
-      if (open) samples = [...samples, { ...position, now, scale: size }].slice(-HISTORY_SIZE)
+      if (open && handVisible) samples = [...samples, { ...position, now, scale: size, speed: velocity.magnitude }].slice(-HISTORY_SIZE)
       else if (!activated) samples = []
 
       const motion = !activated && open ? detectCircularMotion(samples) : { detected: false, confidence: 0 }
@@ -253,18 +275,30 @@ export function createRasenganDetector(): RasenganDetector {
       }
       if (!activated && chargeStartedAt !== null && now - chargeStartedAt >= CHARGE_MS) {
         activated = true
-        activatedAt = now
+        stableSince = null
       }
 
-      const speedPerSecond = velocity.magnitude * 1000
+      const stable = activated && open && handVisible && velocity.magnitude <= STABLE_SPEED_MAX
+      if (stable) {
+        if (stableSince === null) stableSince = now
+        if (stableSince !== null && now - stableSince >= STABLE_ARM_MS) armed = true
+      } else if (activated && !armed) {
+        stableSince = null
+      }
+
+      const recentStrikeSamples = samples.slice(-STRIKE_HISTORY_SIZE)
+      const priorFast = recentStrikeSamples.some((sample) => sample.speed >= FAST_SPEED_MIN)
+      const peakSpeed = recentStrikeSamples.reduce((peak, sample) => Math.max(peak, sample.speed), 0)
       const growthPerSecond = previous && previous.scale > 0
         ? Math.max(0, (size / previous.scale - 1) / elapsed * 1000)
         : 0
-      const velocityScore = clamp01((speedPerSecond - 0.18) / 0.7)
-      const accelerationScore = clamp01((acceleration - 0.45) / 2.4)
-      const growthScore = clamp01((growthPerSecond - 0.04) / 0.28)
-      const throwConfidence = velocityScore * 0.45 + accelerationScore * 0.4 + growthScore * 0.15
-      if (activated && open && activatedAt !== null && now - activatedAt >= THROW_ARM_DELAY_MS && throwConfidence >= THROW_CONFIDENCE_THRESHOLD) {
+      const movementScore = clamp01((peakSpeed - FAST_SPEED_MIN) / (PEAK_SPEED_MIN - FAST_SPEED_MIN))
+      const decelerationScore = clamp01((deceleration - DECELERATION_MIN) / 2)
+      const scaleScore = clamp01(growthPerSecond / 0.3)
+      const visibilityScore = handVisible ? 1 : 0
+      const throwConfidence = movementScore * 0.4 + decelerationScore * 0.4 + scaleScore * 0.1 + visibilityScore * 0.1
+      const stoppedAfterStrike = velocity.magnitude <= STOP_SPEED_MAX && previousVelocity >= FAST_SPEED_MIN
+      if (armed && handVisible && open && priorFast && stoppedAfterStrike && throwConfidence >= STRIKE_CONFIDENCE_THRESHOLD) {
         const directionLength = Math.hypot(velocity.x, velocity.y) || 1
         projectile = {
           start: position,
@@ -272,7 +306,8 @@ export function createRasenganDetector(): RasenganDetector {
           startedAt: now,
         }
         activated = false
-        lastResult = withLifecycle('THROW_DETECTED', now, {
+        armed = false
+        lastResult = withLifecycle('STRIKE_DETECTED', now, {
           active: false,
           confidence: 1,
           palmPosition: position,
@@ -280,16 +315,24 @@ export function createRasenganDetector(): RasenganDetector {
           circularMotion: false,
           velocity,
           acceleration,
+          deceleration,
           handScale: size,
           throwConfidence,
           throwDetected: true,
+          handVisible,
           lostForMs: 0,
         })
         return lastResult
       }
 
       const charging = !activated && chargeStartedAt !== null
-      const state: RasenganState = activated ? 'ACTIVE_HOLD' : charging ? 'CHARGING' : 'SEARCHING'
+      const state: RasenganState = activated
+        ? armed
+          ? 'ARMED'
+          : 'ACTIVE_HOLD'
+        : charging
+          ? 'CHARGING'
+          : 'SEARCHING'
       const activationConfidence = Math.min(1, (open ? 0.45 : 0) + motion.confidence * 0.55)
       lastResult = withLifecycle(state, now, {
         active: activated,
@@ -304,8 +347,10 @@ export function createRasenganDetector(): RasenganDetector {
         lostForMs: 0,
         velocity,
         acceleration,
+        deceleration,
         handScale: size,
         throwConfidence,
+        handVisible,
       })
       return lastResult
     },
