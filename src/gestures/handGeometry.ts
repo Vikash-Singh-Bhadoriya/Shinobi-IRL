@@ -6,6 +6,7 @@ type Point = { x: number; y: number }
 
 export const LANDMARKS = {
   WRIST: 0,
+  THUMB_TIP: 4,
   INDEX_MCP: 5,
   INDEX_PIP: 6,
   INDEX_DIP: 7,

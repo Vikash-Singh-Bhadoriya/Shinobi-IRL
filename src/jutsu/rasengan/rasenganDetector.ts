@@ -13,8 +13,10 @@ import type {
 const HISTORY_SIZE = 12
 const MOTION_WINDOW_MS = 850
 const CHARGE_MS = 500
-const PINCH_HOLD_MS = 90
-const PINCH_THRESHOLD = 0.58
+const PINCH_CONFIRMATION_MS = 70
+const PINCH_SMOOTHING_ALPHA = 0.5
+const PINCH_START_THRESHOLD = 0.62
+const PINCH_RELEASE_THRESHOLD = 0.72
 const LOST_HAND_GRACE_MS = 1000
 const FADE_OUT_MS = 500
 const PROJECTILE_MS = 360
@@ -116,8 +118,11 @@ function emptyResult(state: RasenganState = 'SEARCHING', lostForMs = 0): Rasenga
     deceleration: 0,
     handScale: 0,
     pinchDetected: false,
+    pinchRawDistance: 0,
     pinchDistance: 0,
-    pinchThreshold: PINCH_THRESHOLD,
+    pinchStartThreshold: PINCH_START_THRESHOLD,
+    pinchReleaseThreshold: PINCH_RELEASE_THRESHOLD,
+    pinchDurationMs: 0,
     throwConfidence: 0,
     throwDetected: false,
     throwCondition: false,
@@ -152,6 +157,8 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
   let impactStartedAt: number | null = null
   let cooldownUntil = 0
   let pinchStartedAt: number | null = null
+  let pinchActive = false
+  let smoothedPinchDistance: number | null = null
   let lastResult = emptyResult()
 
   const reset = () => {
@@ -166,6 +173,8 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
     impactStartedAt = null
     cooldownUntil = 0
     pinchStartedAt = null
+    pinchActive = false
+    smoothedPinchDistance = null
     lastResult = emptyResult()
   }
 
@@ -175,6 +184,8 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
     state,
     throwDetected: false,
     throwCondition: false,
+    pinchDetected: false,
+    pinchDurationMs: 0,
     ...values,
     projectilePosition: projectile ? getProjectilePosition(projectile, now) : null,
     projectileProgress: projectile ? Math.min(1, Math.max(0, (now - projectile.startedAt) / PROJECTILE_MS)) : 0,
@@ -212,9 +223,11 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
       if (!tracked) {
         if (missingSince === null) missingSince = now
         const lostForMs = now - missingSince
+        pinchStartedAt = null
+        pinchActive = false
+        smoothedPinchDistance = null
         if (!activated) {
           samples = []
-          pinchStartedAt = null
           chargeStartedAt = null
           lastResult = emptyResult('SEARCHING', lostForMs)
           return lastResult
@@ -290,15 +303,23 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
         stableSince = null
       }
 
-      const pinchDistance = distance(landmarks[4], landmarks[LANDMARKS.INDEX_TIP]) / Math.max(size, 0.0001)
-      const pinchDetected = pinchDistance <= PINCH_THRESHOLD
-      if (armed && handVisible && pinchDetected) {
+      const pinchRawDistance = distance(landmarks[LANDMARKS.THUMB_TIP], landmarks[LANDMARKS.INDEX_TIP]) / Math.max(size, 0.0001)
+      smoothedPinchDistance = smoothedPinchDistance === null
+        ? pinchRawDistance
+        : PINCH_SMOOTHING_ALPHA * pinchRawDistance + (1 - PINCH_SMOOTHING_ALPHA) * smoothedPinchDistance
+      if (pinchActive) {
+        if (smoothedPinchDistance >= PINCH_RELEASE_THRESHOLD) pinchActive = false
+      } else if (smoothedPinchDistance <= PINCH_START_THRESHOLD) {
+        pinchActive = true
+      }
+      const pinchDistance = smoothedPinchDistance
+      if (armed && handVisible && pinchActive) {
         if (pinchStartedAt === null) pinchStartedAt = now
       } else {
         pinchStartedAt = null
       }
       const pinchHeldFor = pinchStartedAt === null ? 0 : now - pinchStartedAt
-      const throwCondition = armed && handVisible && pinchDetected && pinchHeldFor >= PINCH_HOLD_MS
+      const throwCondition = armed && handVisible && pinchActive && pinchHeldFor >= PINCH_CONFIRMATION_MS
       if (throwCondition) {
         projectile = {
           start: position,
@@ -319,9 +340,12 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
           acceleration,
           deceleration,
           handScale: size,
-          pinchDetected,
+          pinchDetected: pinchActive,
+          pinchRawDistance,
           pinchDistance,
-          pinchThreshold: PINCH_THRESHOLD,
+          pinchStartThreshold: PINCH_START_THRESHOLD,
+          pinchReleaseThreshold: PINCH_RELEASE_THRESHOLD,
+          pinchDurationMs: pinchHeldFor,
           throwConfidence: 1,
           throwDetected: true,
           throwCondition,
@@ -356,10 +380,13 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
         acceleration,
         deceleration,
         handScale: size,
-        pinchDetected,
+        pinchDetected: pinchActive,
+        pinchRawDistance,
         pinchDistance,
-        pinchThreshold: PINCH_THRESHOLD,
-        throwConfidence: pinchDetected ? Math.min(1, pinchHeldFor / PINCH_HOLD_MS) : 0,
+        pinchStartThreshold: PINCH_START_THRESHOLD,
+        pinchReleaseThreshold: PINCH_RELEASE_THRESHOLD,
+        pinchDurationMs: pinchHeldFor,
+        throwConfidence: pinchActive ? Math.min(1, pinchHeldFor / PINCH_CONFIRMATION_MS) : 0,
         throwCondition,
         handVisible,
       })
