@@ -1,6 +1,11 @@
 import type { HandFrame } from '../../types/hand'
 
-export type RasenganState = 'SEARCHING' | 'PALM_FOUND' | 'CHARGING' | 'RASENGAN_READY'
+export type RasenganState =
+  | 'SEARCHING'
+  | 'CHARGING'
+  | 'ACTIVE'
+  | 'LOST_HAND_GRACE'
+  | 'FADE_OUT'
 
 export interface PalmPosition {
   x: number
@@ -10,11 +15,14 @@ export interface PalmPosition {
 export interface RasenganDetection {
   active: boolean
   confidence: number
+  circleConfidence: number
+  activationConfidence: number
   palmPosition: PalmPosition | null
   rotation: number
   palmSize: number
   palmOpen: boolean
   circularMotion: boolean
+  lostForMs: number
   state: RasenganState
 }
 

@@ -20,8 +20,19 @@ export function RasenganDebugPanel({ result }: RasenganDebugPanelProps) {
         <span className="gesture-debug-value">{result.circularMotion ? 'YES' : 'NO'}</span>
       </div>
       <div className="gesture-debug-row">
-        <span className="gesture-debug-label">Confidence</span>
-        <span className="gesture-debug-value">{Math.round(result.confidence * 100)}%</span>
+        <span className="gesture-debug-label">Palm Position</span>
+        <span className="gesture-debug-value">
+          x: {result.palmPosition ? result.palmPosition.x.toFixed(2) : '-'} y:{' '}
+          {result.palmPosition ? result.palmPosition.y.toFixed(2) : '-'}
+        </span>
+      </div>
+      <div className="gesture-debug-row">
+        <span className="gesture-debug-label">Circle Confidence</span>
+        <span className="gesture-debug-value">{Math.round(result.circleConfidence * 100)}%</span>
+      </div>
+      <div className="gesture-debug-row">
+        <span className="gesture-debug-label">Activation Confidence</span>
+        <span className="gesture-debug-value">{Math.round(result.activationConfidence * 100)}%</span>
       </div>
     </section>
   )

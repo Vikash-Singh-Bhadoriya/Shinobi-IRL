@@ -39,12 +39,14 @@ export class RasenganRenderer {
 
   setDetection(detection: RasenganDetection) {
     this.latest = detection
-    if (detection.palmPosition) {
+    const handLost = detection.state === 'LOST_HAND_GRACE' || detection.state === 'FADE_OUT'
+    if (handLost) {
+      if (this.missingSince === null) this.missingSince = performance.now()
+    } else if (detection.palmPosition) {
       this.lastVisible = detection
       this.missingSince = null
-    } else if (this.missingSince === null) {
-      this.missingSince = performance.now()
     }
+    if (detection.palmPosition && !handLost) this.lastVisible = detection
   }
 
   destroy() {
@@ -61,8 +63,10 @@ export class RasenganRenderer {
       this.ctx.clearRect(0, 0, width, height)
       const detection = this.latest
       const visible = detection?.palmPosition ? detection : this.lastVisible
-      const fade = this.missingSince === null ? 1 : Math.max(0, 1 - (now - this.missingSince) / FADE_MS)
-      if (visible?.palmPosition && fade > 0 && (visible.active || visible.state === 'CHARGING')) {
+      const missingFor = this.missingSince === null ? 0 : now - this.missingSince
+      const graceOpacity = missingFor > 0 ? 0.72 : 1
+      const fade = missingFor <= 1000 ? graceOpacity : Math.max(0, 1 - (missingFor - 1000) / FADE_MS)
+      if (visible?.palmPosition && fade > 0 && (visible.active || visible.state === 'CHARGING' || visible.state === 'LOST_HAND_GRACE')) {
         this.drawRasengan(visible, width, height, now, fade)
       }
     }
@@ -75,7 +79,7 @@ export class RasenganRenderer {
     const centerY = y * height
     const scale = Math.min(width, height)
     const radius = Math.max(12, detection.palmSize * scale * 0.62)
-    const progress = detection.active ? 1 : 0.42
+    const progress = detection.active ? 1 : Math.min(1, 0.25 + (now % 500) / 500)
     const pulse = 1 + Math.sin(now / 130) * 0.035
 
     this.ctx.save()
@@ -93,6 +97,15 @@ export class RasenganRenderer {
     this.ctx.beginPath()
     this.ctx.arc(0, 0, radius * 2.2, 0, Math.PI * 2)
     this.ctx.fill()
+
+    this.ctx.save()
+    this.ctx.globalAlpha = 0.65
+    this.ctx.strokeStyle = 'rgba(77, 195, 255, 0.7)'
+    this.ctx.lineWidth = Math.max(1, radius * 0.06)
+    this.ctx.beginPath()
+    this.ctx.arc(0, radius * 0.72, radius * 0.72, Math.PI * 0.12, Math.PI * 0.88)
+    this.ctx.stroke()
+    this.ctx.restore()
 
     const sphere = this.ctx.createRadialGradient(-radius * 0.28, -radius * 0.32, radius * 0.05, 0, 0, radius)
     sphere.addColorStop(0, 'rgba(235, 253, 255, 0.98)')
@@ -117,10 +130,20 @@ export class RasenganRenderer {
 
     for (const particle of this.particles) {
       const angle = particle.angle + now * particle.speed + particle.phase * 0.01
-      const orbit = radius * particle.radius
+      const gather = detection.active ? 1 : Math.max(0.2, progress)
+      const orbit = radius * particle.radius * gather
       this.ctx.fillStyle = `rgba(112, 225, 255, ${0.45 + Math.sin(angle * 2) * 0.2})`
       this.ctx.beginPath()
       this.ctx.arc(Math.cos(angle) * orbit, Math.sin(angle) * orbit, particle.size, 0, Math.PI * 2)
+      this.ctx.fill()
+    }
+
+    this.ctx.fillStyle = 'rgba(123, 226, 255, 0.9)'
+    for (let index = 0; index < 8; index += 1) {
+      const angle = now / 420 + index * Math.PI / 4
+      const orbit = radius * (1.25 + Math.sin(now / 240 + index) * 0.12)
+      this.ctx.beginPath()
+      this.ctx.arc(Math.cos(angle) * orbit, Math.sin(angle) * orbit, Math.max(1, radius * 0.035), 0, Math.PI * 2)
       this.ctx.fill()
     }
     this.ctx.restore()

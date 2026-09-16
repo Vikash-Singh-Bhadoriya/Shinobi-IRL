@@ -3,21 +3,28 @@ import { distance } from '../../gestures/handGeometry'
 import { isOpenPalm, palmCenter, palmRotation, palmSize } from './rasenganGeometry'
 import type { PalmPosition, RasenganDetection, RasenganDetector, RasenganState } from './rasenganTypes'
 
-const HISTORY_SIZE = 24
-const MOTION_WINDOW_MS = 700
+const HISTORY_SIZE = 20
+const MOTION_WINDOW_MS = 850
 const CHARGE_MS = 500
-const MIN_RADIUS = 0.025
-const MIN_SWEEP = Math.PI * 1.35
-const MIN_SPEED = 0.00016
-const MIN_DIRECTIONALITY = 0.58
+const LOST_HAND_GRACE_MS = 1000
+const FADE_OUT_MS = 500
+const MIN_SWEEP = Math.PI * 1.15
+const MIN_DIRECTIONALITY = 0.45
 
 interface Sample extends PalmPosition {
   now: number
+  scale: number
 }
 
 interface MotionResult {
   detected: boolean
   confidence: number
+}
+
+interface HandSnapshot {
+  position: PalmPosition
+  rotation: number
+  size: number
 }
 
 function unwrapDelta(delta: number): number {
@@ -28,7 +35,7 @@ function unwrapDelta(delta: number): number {
 
 function detectCircularMotion(samples: Sample[]): MotionResult {
   const recent = samples.filter((sample) => samples[samples.length - 1].now - sample.now <= MOTION_WINDOW_MS)
-  if (recent.length < 8) return { detected: false, confidence: 0 }
+  if (recent.length < 6) return { detected: false, confidence: 0 }
 
   const center = recent.reduce(
     (sum, sample) => ({ x: sum.x + sample.x / recent.length, y: sum.y + sample.y / recent.length }),
@@ -36,7 +43,8 @@ function detectCircularMotion(samples: Sample[]): MotionResult {
   )
   const radii = recent.map((sample) => distance(sample, center))
   const radius = radii.reduce((sum, value) => sum + value, 0) / radii.length
-  if (radius < MIN_RADIUS) return { detected: false, confidence: 0 }
+  const handScale = recent.reduce((sum, sample) => sum + sample.scale, 0) / recent.length
+  if (radius < handScale * 0.18) return { detected: false, confidence: 0 }
 
   let sweep = 0
   let direction = 0
@@ -54,34 +62,39 @@ function detectCircularMotion(samples: Sample[]): MotionResult {
 
   const elapsed = recent[recent.length - 1].now - recent[0].now
   const speed = elapsed > 0 ? path / elapsed : 0
+  const minimumSpeed = handScale / 2600
   const directionality = Math.abs(direction) / Math.max(1, recent.length - 1)
   const closure = distance(recent[0], recent[recent.length - 1])
-  const closureScore = Math.max(0, 1 - closure / (radius * 1.8))
+  const closureScore = Math.max(0, 1 - closure / (radius * 2.2))
   const sweepScore = Math.min(1, sweep / (Math.PI * 2))
+  const speedScore = Math.min(1, speed / Math.max(0.00008, radius / Math.max(1, elapsed)))
   const confidence = Math.min(
     1,
-    sweepScore * 0.35 + directionality * 0.3 + Math.min(1, speed / 0.0008) * 0.2 + closureScore * 0.15,
+    sweepScore * 0.4 + directionality * 0.28 + speedScore * 0.14 + closureScore * 0.18,
   )
 
   return {
     detected:
       sweep >= MIN_SWEEP &&
-      speed >= MIN_SPEED &&
       directionality >= MIN_DIRECTIONALITY &&
-      closure <= radius * 1.8,
+      speed >= minimumSpeed &&
+      closure <= radius * 2.2,
     confidence,
   }
 }
 
-function emptyResult(state: RasenganState = 'SEARCHING'): RasenganDetection {
+function emptyResult(state: RasenganState = 'SEARCHING', lostForMs = 0): RasenganDetection {
   return {
     active: false,
     confidence: 0,
+    circleConfidence: 0,
+    activationConfidence: 0,
     palmPosition: null,
     rotation: 0,
     palmSize: 0,
     palmOpen: false,
     circularMotion: false,
+    lostForMs,
     state,
   }
 }
@@ -89,11 +102,17 @@ function emptyResult(state: RasenganState = 'SEARCHING'): RasenganDetection {
 export function createRasenganDetector(): RasenganDetector {
   let samples: Sample[] = []
   let chargeStartedAt: number | null = null
+  let activated = false
+  let missingSince: number | null = null
+  let lastHand: HandSnapshot | null = null
   let lastResult = emptyResult()
 
   const reset = () => {
     samples = []
     chargeStartedAt = null
+    activated = false
+    missingSince = null
+    lastHand = null
     lastResult = emptyResult()
   }
 
@@ -102,42 +121,63 @@ export function createRasenganDetector(): RasenganDetector {
     analyze(frame: HandFrame, now: number) {
       const tracked = frame.find((candidate) => candidate.landmarks.length >= 21)
       if (!tracked) {
-        reset()
+        if (missingSince === null) missingSince = now
+        const lostForMs = now - missingSince
+        if (!activated) {
+          samples = []
+          chargeStartedAt = null
+          lastResult = emptyResult('SEARCHING', lostForMs)
+          return lastResult
+        }
+        const state: RasenganState = lostForMs <= LOST_HAND_GRACE_MS ? 'LOST_HAND_GRACE' : 'FADE_OUT'
+        lastResult = {
+          active: true,
+          confidence: Math.max(0, 1 - lostForMs / (LOST_HAND_GRACE_MS + FADE_OUT_MS)),
+          circleConfidence: lastResult.circleConfidence,
+          activationConfidence: lastResult.activationConfidence,
+          palmPosition: lastHand?.position ?? null,
+          rotation: lastHand?.rotation ?? 0,
+          palmSize: lastHand?.size ?? 0,
+          palmOpen: false,
+          circularMotion: false,
+          lostForMs,
+          state,
+        }
+        if (lostForMs > LOST_HAND_GRACE_MS + FADE_OUT_MS) reset()
         return lastResult
       }
 
       const hand = tracked.landmarks
+      missingSince = null
       const open = isOpenPalm(hand)
       const position = palmCenter(hand)
       const size = palmSize(hand)
-      if (open) samples = [...samples, { ...position, now }].slice(-HISTORY_SIZE)
-      else samples = []
+      lastHand = { position, rotation: palmRotation(hand), size }
+      if (!activated && open) samples = [...samples, { ...position, now, scale: size }].slice(-HISTORY_SIZE)
+      else if (!activated) samples = []
 
-      const motion = open ? detectCircularMotion(samples) : { detected: false, confidence: 0 }
-      if (open && motion.detected) {
+      const motion = !activated && open ? detectCircularMotion(samples) : { detected: false, confidence: 0 }
+      if (!activated && open && motion.detected) {
         if (chargeStartedAt === null) chargeStartedAt = now
-      } else {
+      } else if (!activated) {
         chargeStartedAt = null
       }
 
-      const charging = chargeStartedAt !== null
-      const ready = chargeStartedAt !== null && now - chargeStartedAt >= CHARGE_MS
-      const state: RasenganState = !open
-        ? 'SEARCHING'
-        : ready
-          ? 'RASENGAN_READY'
-          : charging
-            ? 'CHARGING'
-            : 'PALM_FOUND'
-      const confidence = Math.min(1, (open ? 0.4 : 0) + motion.confidence * 0.6)
+      if (!activated && chargeStartedAt !== null && now - chargeStartedAt >= CHARGE_MS) activated = true
+      const charging = !activated && chargeStartedAt !== null
+      const state: RasenganState = activated ? 'ACTIVE' : charging ? 'CHARGING' : 'SEARCHING'
+      const activationConfidence = Math.min(1, (open ? 0.45 : 0) + motion.confidence * 0.55)
       lastResult = {
-        active: ready,
-        confidence,
+        active: activated,
+        confidence: activated ? 1 : activationConfidence,
+        circleConfidence: motion.confidence,
+        activationConfidence,
         palmPosition: position,
-        rotation: palmRotation(hand),
+        rotation: lastHand.rotation,
         palmSize: size,
         palmOpen: open,
         circularMotion: motion.detected,
+        lostForMs: 0,
         state,
       }
       return lastResult
