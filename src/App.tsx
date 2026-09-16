@@ -9,6 +9,8 @@ import { useHandTracking } from './hooks/useHandTracking'
 import { useRasengan } from './hooks/useRasengan'
 import { useShadowCloneEffect } from './hooks/useShadowCloneEffect'
 import { useSelfieSegmentation } from './hooks/useSelfieSegmentation'
+import { MagicCircleDebugPanel } from './jutsu/magicCircle/MagicCircleDebugPanel'
+import { useMagicCircle } from './jutsu/magicCircle/useMagicCircle'
 
 const VISION_STATUS_LABEL: Record<string, string> = {
   loading: 'Loading hand tracker...',
@@ -22,6 +24,7 @@ export default function App() {
   const { handsCount, visionFps, status: handStatus, registerSink } = useHandTracking(videoRef)
   const gesture = useGestureDetection(registerSink)
   const rasengan = useRasengan(registerSink)
+  const magicCircle = useMagicCircle(registerSink)
   const segmentation = useSelfieSegmentation(videoRef)
   const shadowCloneEffect = useShadowCloneEffect(segmentation.personCanvasRef, gesture.state)
   const debugMode = new URLSearchParams(window.location.search).has('debug')
@@ -59,6 +62,13 @@ export default function App() {
             height={1}
             aria-hidden="true"
           />
+          <canvas
+            ref={magicCircle.canvasRef}
+            className="magic-circle-effect-canvas"
+            width={1}
+            height={1}
+            aria-hidden="true"
+          />
           <canvas ref={segmentation.personCanvasRef} className="person-mask-canvas" aria-hidden="true" />
           <HandOverlay registerSink={registerSink} />
         </CameraView>
@@ -86,6 +96,7 @@ export default function App() {
 
         {debugMode && <GestureDebugPanel result={gesture} />}
         {debugMode && <RasenganDebugPanel result={rasengan.result} />}
+        {debugMode && <MagicCircleDebugPanel result={magicCircle.result} />}
       </main>
     </div>
   )
