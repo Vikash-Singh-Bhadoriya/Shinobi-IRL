@@ -15,6 +15,13 @@ const EMPTY_RESULT: RasenganDetection = {
   palmOpen: false,
   circularMotion: false,
   lostForMs: 0,
+  velocity: { x: 0, y: 0, z: 0, magnitude: 0 },
+  acceleration: 0,
+  handScale: 0,
+  throwConfidence: 0,
+  throwDetected: false,
+  projectilePosition: null,
+  projectileProgress: 0,
   state: 'SEARCHING',
 }
 
@@ -43,7 +50,7 @@ export function useRasengan(registerSink: (sink: HandFrameSink) => () => void) {
       const next = detector.analyze(frame, performance.now())
       rendererRef.current?.setDetection(next)
       const now = performance.now()
-      const key = `${next.state}:${next.palmOpen}:${next.circularMotion}:${next.active}:${Math.round(next.confidence * 100)}:${Math.round((next.palmPosition?.x ?? -1) * 100)}:${Math.round((next.palmPosition?.y ?? -1) * 100)}`
+      const key = `${next.state}:${next.palmOpen}:${next.circularMotion}:${next.active}:${next.throwDetected}:${Math.round(next.confidence * 100)}:${Math.round(next.velocity.magnitude * 100000)}:${Math.round(next.acceleration * 100)}:${Math.round(next.handScale * 1000)}:${Math.round(next.throwConfidence * 100)}:${Math.round((next.projectilePosition?.x ?? -1) * 100)}:${Math.round((next.projectilePosition?.y ?? -1) * 100)}`
       if (key !== lastKeyRef.current && (now - lastDebugUpdateRef.current >= 100 || next.state !== lastStateRef.current)) {
         lastKeyRef.current = key
         lastDebugUpdateRef.current = now

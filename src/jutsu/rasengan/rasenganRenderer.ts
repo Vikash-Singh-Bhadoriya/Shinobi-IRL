@@ -66,7 +66,9 @@ export class RasenganRenderer {
       const missingFor = this.missingSince === null ? 0 : now - this.missingSince
       const graceOpacity = missingFor > 0 ? 0.72 : 1
       const fade = missingFor <= 1000 ? graceOpacity : Math.max(0, 1 - (missingFor - 1000) / FADE_MS)
-      if (visible?.palmPosition && fade > 0 && (visible.active || visible.state === 'CHARGING' || visible.state === 'LOST_HAND_GRACE')) {
+      if (detection && (detection.state === 'THROW_DETECTED' || detection.state === 'PROJECTILE' || detection.state === 'IMPACT')) {
+        this.drawProjectile(detection, width, height, now)
+      } else if (visible?.palmPosition && fade > 0 && (visible.active || visible.state === 'CHARGING' || visible.state === 'LOST_HAND_GRACE')) {
         this.drawRasengan(visible, width, height, now, fade)
       }
     }
@@ -145,6 +147,84 @@ export class RasenganRenderer {
       this.ctx.beginPath()
       this.ctx.arc(Math.cos(angle) * orbit, Math.sin(angle) * orbit, Math.max(1, radius * 0.035), 0, Math.PI * 2)
       this.ctx.fill()
+    }
+    this.ctx.restore()
+  }
+
+  private drawProjectile(detection: RasenganDetection, width: number, height: number, now: number) {
+    const position = detection.projectilePosition
+    if (!position) return
+    const scale = Math.min(width, height)
+    const progress = detection.projectileProgress
+    const radius = Math.max(14, detection.palmSize * scale * (0.68 + progress * 0.22))
+    const centerX = position.x * width
+    const centerY = position.y * height
+    const impact = detection.state === 'IMPACT'
+    const impactProgress = impact ? Math.min(1, (progress - 1) * (1100 / 400)) : 0
+
+    this.ctx.save()
+    this.ctx.globalCompositeOperation = 'lighter'
+    if (impact) {
+      const ringRadius = radius * (1 + impactProgress * 3.5)
+      this.ctx.globalAlpha = 0.8 * (1 - impactProgress)
+      this.ctx.strokeStyle = 'rgba(157, 241, 255, 0.95)'
+      this.ctx.lineWidth = Math.max(2, radius * 0.08) * (1 - impactProgress * 0.4)
+      this.ctx.beginPath()
+      this.ctx.arc(centerX, centerY, ringRadius, 0, Math.PI * 2)
+      this.ctx.stroke()
+      this.ctx.fillStyle = `rgba(147, 235, 255, ${0.55 * (1 - impactProgress)})`
+      this.ctx.beginPath()
+      this.ctx.arc(centerX, centerY, radius * (1.4 - impactProgress * 0.6), 0, Math.PI * 2)
+      this.ctx.fill()
+      this.ctx.restore()
+      return
+    }
+
+    const directionLength = Math.hypot(detection.velocity.x, detection.velocity.y) || 1
+    const directionX = detection.velocity.x / directionLength
+    const directionY = detection.velocity.y / directionLength
+    for (let index = 0; index < 12; index += 1) {
+      const trail = (index + 1) / 12
+      const wobble = Math.sin(now / 90 + index) * radius * 0.08
+      const particleX = centerX - directionX * radius * trail * 2.5 - directionY * wobble
+      const particleY = centerY - directionY * radius * trail * 2.5 + directionX * wobble
+      this.ctx.globalAlpha = 0.65 * (1 - trail)
+      this.ctx.fillStyle = index % 3 === 0 ? 'rgba(236, 253, 255, 0.9)' : 'rgba(62, 172, 255, 0.8)'
+      this.ctx.beginPath()
+      this.ctx.arc(particleX, particleY, Math.max(1, radius * (0.05 + (1 - trail) * 0.05)), 0, Math.PI * 2)
+      this.ctx.fill()
+    }
+
+    this.ctx.globalAlpha = 0.8
+    const glow = this.ctx.createRadialGradient(centerX, centerY, radius * 0.15, centerX, centerY, radius * 2.8)
+    glow.addColorStop(0, 'rgba(220, 252, 255, 0.8)')
+    glow.addColorStop(0.3, 'rgba(53, 180, 255, 0.36)')
+    glow.addColorStop(1, 'rgba(0, 65, 255, 0)')
+    this.ctx.fillStyle = glow
+    this.ctx.beginPath()
+    this.ctx.arc(centerX, centerY, radius * 2.8, 0, Math.PI * 2)
+    this.ctx.fill()
+
+    const sphere = this.ctx.createRadialGradient(centerX - radius * 0.28, centerY - radius * 0.32, radius * 0.05, centerX, centerY, radius)
+    sphere.addColorStop(0, 'rgba(255, 255, 255, 1)')
+    sphere.addColorStop(0.2, 'rgba(115, 229, 255, 1)')
+    sphere.addColorStop(0.62, 'rgba(25, 109, 250, 0.98)')
+    sphere.addColorStop(1, 'rgba(5, 20, 125, 1)')
+    this.ctx.fillStyle = sphere
+    this.ctx.beginPath()
+    this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
+    this.ctx.fill()
+
+    this.ctx.strokeStyle = 'rgba(205, 247, 255, 0.9)'
+    this.ctx.lineWidth = Math.max(1.5, radius * 0.05)
+    for (let layer = 0; layer < 3; layer += 1) {
+      this.ctx.save()
+      this.ctx.translate(centerX, centerY)
+      this.ctx.rotate(now / (140 + layer * 45) * (layer % 2 === 0 ? 1 : -1))
+      this.ctx.beginPath()
+      this.ctx.ellipse(0, 0, radius * (0.8 + layer * 0.1), radius * (0.24 + layer * 0.05), layer * 0.8, 0, Math.PI * 2)
+      this.ctx.stroke()
+      this.ctx.restore()
     }
     this.ctx.restore()
   }
