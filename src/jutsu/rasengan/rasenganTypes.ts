@@ -53,6 +53,9 @@ export interface RasenganDetection {
   acceleration: number
   deceleration?: number
   handScale: number
+  pinchDetected: boolean
+  pinchDistance: number
+  pinchThreshold: number
   throwConfidence: number
   throwDetected: boolean
   throwCondition: boolean

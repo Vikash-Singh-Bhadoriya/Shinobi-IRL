@@ -1,5 +1,5 @@
 import type { HandFrame } from '../../types/hand'
-import { distance } from '../../gestures/handGeometry'
+import { distance, LANDMARKS } from '../../gestures/handGeometry'
 import { isOpenPalm, palmCenter, palmRotation, palmSize } from './rasenganGeometry'
 import type {
   PalmPosition,
@@ -13,21 +13,17 @@ import type {
 const HISTORY_SIZE = 12
 const MOTION_WINDOW_MS = 850
 const CHARGE_MS = 500
+const PINCH_HOLD_MS = 90
+const PINCH_THRESHOLD = 0.58
 const LOST_HAND_GRACE_MS = 1000
 const FADE_OUT_MS = 500
-const PROJECTILE_MS = 1100
+const PROJECTILE_MS = 360
 const IMPACT_MS = 400
 const COOLDOWN_MS = 2000
 const MIN_SWEEP = Math.PI * 1.15
 const MIN_DIRECTIONALITY = 0.45
 const STABLE_ARM_MS = 500
-const STRIKE_CONFIDENCE_THRESHOLD = 0.65
-const STRIKE_HISTORY_SIZE = 10
 const STABLE_SPEED_MAX = 0.16
-const STOP_SPEED_MAX = 0.2
-const FAST_SPEED_MIN = 0.5
-const PEAK_SPEED_MIN = 0.7
-const DECELERATION_MIN = 0.8
 
 interface Sample extends PalmPosition {
   now: number
@@ -53,10 +49,6 @@ interface ProjectileSnapshot {
 }
 
 const ZERO_VELOCITY: RasenganVelocity = { x: 0, y: 0, z: 0, magnitude: 0 }
-
-function clamp01(value: number): number {
-  return Math.min(1, Math.max(0, value))
-}
 
 function unwrapDelta(delta: number): number {
   if (delta > Math.PI) return delta - Math.PI * 2
@@ -123,6 +115,9 @@ function emptyResult(state: RasenganState = 'SEARCHING', lostForMs = 0): Rasenga
     acceleration: 0,
     deceleration: 0,
     handScale: 0,
+    pinchDetected: false,
+    pinchDistance: 0,
+    pinchThreshold: PINCH_THRESHOLD,
     throwConfidence: 0,
     throwDetected: false,
     throwCondition: false,
@@ -156,6 +151,7 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
   let projectile: ProjectileSnapshot | null = null
   let impactStartedAt: number | null = null
   let cooldownUntil = 0
+  let pinchStartedAt: number | null = null
   let lastResult = emptyResult()
 
   const reset = () => {
@@ -169,6 +165,7 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
     projectile = null
     impactStartedAt = null
     cooldownUntil = 0
+    pinchStartedAt = null
     lastResult = emptyResult()
   }
 
@@ -217,6 +214,7 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
         const lostForMs = now - missingSince
         if (!activated) {
           samples = []
+          pinchStartedAt = null
           chargeStartedAt = null
           lastResult = emptyResult('SEARCHING', lostForMs)
           return lastResult
@@ -292,40 +290,24 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
         stableSince = null
       }
 
-      const recentStrikeSamples = samples.slice(-STRIKE_HISTORY_SIZE)
-      const priorFast = recentStrikeSamples.some((sample) => sample.speed >= FAST_SPEED_MIN)
-      const peakSpeed = recentStrikeSamples.reduce((peak, sample) => Math.max(peak, sample.speed), 0)
-      const growthPerSecond = previous && previous.scale > 0
-        ? Math.max(0, (size / previous.scale - 1) / elapsed * 1000)
-        : 0
-      const previousGrowthPerSecond = previous && previousPrevious && previousPrevious.scale > 0
-        ? Math.max(0, (previous.scale / previousPrevious.scale - 1) / Math.max(1, previous.now - previousPrevious.now) * 1000)
-        : 0
-      const scaleDeceleration = Math.max(0, previousGrowthPerSecond - growthPerSecond)
-      const forwardMovementScore = clamp01(Math.max(growthPerSecond, previousGrowthPerSecond) / 0.3)
-      const movementScore = Math.max(
-        clamp01((peakSpeed - FAST_SPEED_MIN) / (PEAK_SPEED_MIN - FAST_SPEED_MIN)),
-        forwardMovementScore,
-      )
-      const decelerationScore = Math.max(
-        clamp01((deceleration - DECELERATION_MIN) / 2),
-        clamp01((scaleDeceleration - DECELERATION_MIN) / 2),
-      )
-      const scaleScore = forwardMovementScore
-      const visibilityScore = handVisible ? 1 : 0
-      const throwConfidence = movementScore * 0.4 + decelerationScore * 0.4 + scaleScore * 0.1 + visibilityScore * 0.1
-      const stoppedAfterStrike = velocity.magnitude <= STOP_SPEED_MAX && previousVelocity >= FAST_SPEED_MIN
-      const forwardStrike = previousGrowthPerSecond >= 0.3 && growthPerSecond <= 0.2 && scaleDeceleration >= DECELERATION_MIN
-      const throwCondition = armed && handVisible && open && (priorFast || forwardStrike) && (stoppedAfterStrike || forwardStrike) && throwConfidence >= STRIKE_CONFIDENCE_THRESHOLD
+      const pinchDistance = distance(landmarks[4], landmarks[LANDMARKS.INDEX_TIP]) / Math.max(size, 0.0001)
+      const pinchDetected = pinchDistance <= PINCH_THRESHOLD
+      if (armed && handVisible && pinchDetected) {
+        if (pinchStartedAt === null) pinchStartedAt = now
+      } else {
+        pinchStartedAt = null
+      }
+      const pinchHeldFor = pinchStartedAt === null ? 0 : now - pinchStartedAt
+      const throwCondition = armed && handVisible && pinchDetected && pinchHeldFor >= PINCH_HOLD_MS
       if (throwCondition) {
-        const directionLength = Math.hypot(velocity.x, velocity.y) || 1
         projectile = {
           start: position,
-          direction: { x: velocity.x / directionLength, y: velocity.y / directionLength },
+          direction: { x: 0.5 - position.x, y: 0.42 - position.y },
           startedAt: now,
         }
         activated = false
         armed = false
+        pinchStartedAt = null
         lastResult = withLifecycle('THROW_DETECTED', now, {
           active: false,
           confidence: 1,
@@ -337,7 +319,10 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
           acceleration,
           deceleration,
           handScale: size,
-          throwConfidence,
+          pinchDetected,
+          pinchDistance,
+          pinchThreshold: PINCH_THRESHOLD,
+          throwConfidence: 1,
           throwDetected: true,
           throwCondition,
           handVisible,
@@ -371,7 +356,10 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
         acceleration,
         deceleration,
         handScale: size,
-        throwConfidence,
+        pinchDetected,
+        pinchDistance,
+        pinchThreshold: PINCH_THRESHOLD,
+        throwConfidence: pinchDetected ? Math.min(1, pinchHeldFor / PINCH_HOLD_MS) : 0,
         throwCondition,
         handVisible,
       })

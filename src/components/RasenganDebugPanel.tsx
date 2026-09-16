@@ -20,6 +20,7 @@ export function RasenganDebugPanel({ result }: RasenganDebugPanelProps) {
           </div>
           <div className="gesture-debug-row"><span className="gesture-debug-label">Position</span><span className="gesture-debug-value">x: {detection.palmPosition ? detection.palmPosition.x.toFixed(2) : '-'} y: {detection.palmPosition ? detection.palmPosition.y.toFixed(2) : '-'}</span></div>
           <div className="gesture-debug-row"><span className="gesture-debug-label">Scale</span><span className="gesture-debug-value">{detection.handScale.toFixed(3)}</span></div>
+          <div className="gesture-debug-row"><span className="gesture-debug-label">Pinch</span><span className="gesture-debug-value">{detection.pinchDetected ? 'YES' : 'NO'} ({detection.pinchDistance.toFixed(2)} / {detection.pinchThreshold.toFixed(2)})</span></div>
           <div className="gesture-debug-row"><span className="gesture-debug-label">Velocity / Previous</span><span className="gesture-debug-value">{detection.velocity.magnitude.toFixed(3)} / {detection.previousVelocity.toFixed(3)}</span></div>
           <div className="gesture-debug-row"><span className="gesture-debug-label">Deceleration</span><span className="gesture-debug-value">{(detection.deceleration ?? 0).toFixed(3)}</span></div>
           <div className="gesture-debug-row"><span className="gesture-debug-label">Throw Confidence</span><span className="gesture-debug-value">{detection.throwConfidence.toFixed(3)}</span></div>
