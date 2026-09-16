@@ -119,11 +119,13 @@ function emptyResult(state: RasenganState = 'SEARCHING', lostForMs = 0): Rasenga
     circularMotion: false,
     lostForMs,
     velocity: ZERO_VELOCITY,
+    previousVelocity: 0,
     acceleration: 0,
     deceleration: 0,
     handScale: 0,
     throwConfidence: 0,
     throwDetected: false,
+    throwCondition: false,
     handVisible: false,
     projectilePosition: null,
     projectileProgress: 0,
@@ -175,6 +177,7 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
     active: state === 'ACTIVE_HOLD' || state === 'ARMED' || state === 'CHARGING',
     state,
     throwDetected: false,
+    throwCondition: false,
     ...values,
     projectilePosition: projectile ? getProjectilePosition(projectile, now) : null,
     projectileProgress: projectile ? Math.min(1, Math.max(0, (now - projectile.startedAt) / PROJECTILE_MS)) : 0,
@@ -255,14 +258,14 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
       const elapsed = previous ? Math.max(1, now - previous.now) : 1
       const velocity: RasenganVelocity = previous
         ? {
-            x: (position.x - previous.x) / elapsed,
-            y: (position.y - previous.y) / elapsed,
-            z: (size - previous.scale) / elapsed,
-            magnitude: distance(position, previous) / elapsed,
+            x: (position.x - previous.x) / elapsed * 1000,
+            y: (position.y - previous.y) / elapsed * 1000,
+            z: (size - previous.scale) / elapsed * 1000,
+            magnitude: distance(position, previous) / elapsed * 1000,
           }
         : ZERO_VELOCITY
       const previousVelocity = previous && previousPrevious
-        ? distance(previous, previousPrevious) / Math.max(1, previous.now - previousPrevious.now)
+        ? distance(previous, previousPrevious) / Math.max(1, previous.now - previousPrevious.now) * 1000
         : 0
       const acceleration = previous ? Math.max(0, velocity.magnitude - previousVelocity) / elapsed * 1000 : 0
       const deceleration = previous ? Math.max(0, previousVelocity - velocity.magnitude) / elapsed * 1000 : 0
@@ -295,13 +298,26 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
       const growthPerSecond = previous && previous.scale > 0
         ? Math.max(0, (size / previous.scale - 1) / elapsed * 1000)
         : 0
-      const movementScore = clamp01((peakSpeed - FAST_SPEED_MIN) / (PEAK_SPEED_MIN - FAST_SPEED_MIN))
-      const decelerationScore = clamp01((deceleration - DECELERATION_MIN) / 2)
-      const scaleScore = clamp01(growthPerSecond / 0.3)
+      const previousGrowthPerSecond = previous && previousPrevious && previousPrevious.scale > 0
+        ? Math.max(0, (previous.scale / previousPrevious.scale - 1) / Math.max(1, previous.now - previousPrevious.now) * 1000)
+        : 0
+      const scaleDeceleration = Math.max(0, previousGrowthPerSecond - growthPerSecond)
+      const forwardMovementScore = clamp01(Math.max(growthPerSecond, previousGrowthPerSecond) / 0.3)
+      const movementScore = Math.max(
+        clamp01((peakSpeed - FAST_SPEED_MIN) / (PEAK_SPEED_MIN - FAST_SPEED_MIN)),
+        forwardMovementScore,
+      )
+      const decelerationScore = Math.max(
+        clamp01((deceleration - DECELERATION_MIN) / 2),
+        clamp01((scaleDeceleration - DECELERATION_MIN) / 2),
+      )
+      const scaleScore = forwardMovementScore
       const visibilityScore = handVisible ? 1 : 0
       const throwConfidence = movementScore * 0.4 + decelerationScore * 0.4 + scaleScore * 0.1 + visibilityScore * 0.1
       const stoppedAfterStrike = velocity.magnitude <= STOP_SPEED_MAX && previousVelocity >= FAST_SPEED_MIN
-      if (armed && handVisible && open && priorFast && stoppedAfterStrike && throwConfidence >= STRIKE_CONFIDENCE_THRESHOLD) {
+      const forwardStrike = previousGrowthPerSecond >= 0.3 && growthPerSecond <= 0.2 && scaleDeceleration >= DECELERATION_MIN
+      const throwCondition = armed && handVisible && open && (priorFast || forwardStrike) && (stoppedAfterStrike || forwardStrike) && throwConfidence >= STRIKE_CONFIDENCE_THRESHOLD
+      if (throwCondition) {
         const directionLength = Math.hypot(velocity.x, velocity.y) || 1
         projectile = {
           start: position,
@@ -310,18 +326,20 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
         }
         activated = false
         armed = false
-        lastResult = withLifecycle('STRIKE_DETECTED', now, {
+        lastResult = withLifecycle('THROW_DETECTED', now, {
           active: false,
           confidence: 1,
           palmPosition: position,
           palmOpen: open,
           circularMotion: false,
           velocity,
+          previousVelocity,
           acceleration,
           deceleration,
           handScale: size,
           throwConfidence,
           throwDetected: true,
+          throwCondition,
           handVisible,
           lostForMs: 0,
         })
@@ -349,10 +367,12 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
         circularMotion: motion.detected,
         lostForMs: 0,
         velocity,
+        previousVelocity,
         acceleration,
         deceleration,
         handScale: size,
         throwConfidence,
+        throwCondition,
         handVisible,
       })
       return lastResult

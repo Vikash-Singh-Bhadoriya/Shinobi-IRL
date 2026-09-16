@@ -49,11 +49,13 @@ export interface RasenganDetection {
   circularMotion: boolean
   lostForMs: number
   velocity: RasenganVelocity
+  previousVelocity: number
   acceleration: number
   deceleration?: number
   handScale: number
   throwConfidence: number
   throwDetected: boolean
+  throwCondition: boolean
   handVisible?: boolean
   projectilePosition: PalmPosition | null
   projectileProgress: number
