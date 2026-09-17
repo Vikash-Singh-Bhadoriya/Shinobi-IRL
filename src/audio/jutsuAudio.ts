@@ -27,19 +27,11 @@ const OUTPUT_FADE_SECONDS = 0.28
 const OUTPUT_SETTLE_GAP_SECONDS = 0.1
 const NOISE_BUFFER_SECONDS = 2
 const NOISE_BUFFER_LOOPING = true
-const RASENGAN_LOOP_SUB_BASE = 80
-const RASENGAN_LOOP_SUB_DETUNE = 8
-const RASENGAN_LOOP_MID_FREQUENCY = 160
-const RASENGAN_LOOP_MID_DETUNE = -6
-const RASENGAN_LOOP_SHIMMER_FREQUENCY = 240
-const RASENGAN_LOOP_NOISE_BANDPASS = 700
-const RASENGAN_LOOP_NOISE_Q = 2.0
-const RASENGAN_LOOP_NOISE_LEVEL = 0.08
-const RASENGAN_LOOP_GAIN_PEAK = 0.18
-const RASENGAN_LOOP_LFO_RATE = 0.5
-const RASENGAN_LOOP_LFO_DEPTH = 0.06
-const RASENGAN_LOOP_PULSE_RATE = 7
-const RASENGAN_LOOP_PULSE_DEPTH = 0.035
+const RASENGAN_LOOP_BODY_FREQUENCY = 180
+const RASENGAN_LOOP_BODY_OSC_GAIN = 0.90
+const RASENGAN_LOOP_PULSE_RATE = 2.0
+const RASENGAN_LOOP_PULSE_DEPTH = 0.02
+const RASENGAN_LOOP_GAIN_PEAK = 0.08
 const LIGHTNING_LOOP_BUZZ_BASE = 128
 const LIGHTNING_LOOP_BUZZ_DETUNE = 14
 const LIGHTNING_LOOP_BUZZ_TWO_FREQUENCY = 278
@@ -239,15 +231,11 @@ export function playRasenganActivation(): void {
     rasenganOneShotInFlight -= 1
   }
   try {
-    // Rising sawtooth sweep — spinning energy charging up
-    scheduleToneOneShot(bundle, 'sawtooth', 80, 320, 0.18, 0.09, 0.12, 0.32, 0)
-    // Harmonic overtone — adds brightness and spin character
-    scheduleToneOneShot(bundle, 'sine', 160, 480, 0.14, 0.07, 0.1, 0.36, 0.04)
-    // Bandpass noise swell — energy texture body
-    scheduleNoiseOneShot(bundle, 'bandpass', 900, 2.0, 0.16, 0.11, 0.14, 0.26, 0.02)
-    // Descending settling tone — bridges into the loop
-    scheduleToneOneShot(bundle, 'sine', 320, 160, 0.10, 0.12, 0.06, 0.28, 0.28)
-    window.setTimeout(finish, 760)
+    // Simple, soft sine-based energy formation
+    scheduleToneOneShot(bundle, 'sine', 200, 400, 0.15, 0.15, 0.15, 0.20, 0)
+    // Very subtle lower octave for thickness
+    scheduleToneOneShot(bundle, 'sine', 100, 200, 0.08, 0.15, 0.15, 0.20, 0)
+    window.setTimeout(finish, 500)
   } catch {
     finish()
   }
@@ -259,83 +247,40 @@ export function playRasenganLoopStart(): void {
   if (!bundle) return
   try {
     const { context } = bundle
+
     const output = buildLoopOutput(bundle)
 
-    // Sub-bass body — gives weight and grounding
-    const sub = context.createOscillator()
-    sub.type = 'sawtooth'
-    sub.frequency.value = RASENGAN_LOOP_SUB_BASE
-    sub.detune.value = RASENGAN_LOOP_SUB_DETUNE
-    sub.connect(output)
+    // Smooth, low, contained sine body
+    const body = context.createOscillator()
+    body.type = 'sine'
+    body.frequency.value = RASENGAN_LOOP_BODY_FREQUENCY
+    const bodyOscGain = context.createGain()
+    bodyOscGain.gain.value = RASENGAN_LOOP_BODY_OSC_GAIN
+    body.connect(bodyOscGain)
+    bodyOscGain.connect(output)
 
-    // Mid spinning layer — primary audible body on laptop/desktop speakers
-    const mid = context.createOscillator()
-    mid.type = 'sawtooth'
-    mid.frequency.value = RASENGAN_LOOP_MID_FREQUENCY
-    mid.detune.value = RASENGAN_LOOP_MID_DETUNE
-    const midGain = context.createGain()
-    midGain.gain.value = 0.55
-    mid.connect(midGain)
-    midGain.connect(output)
-
-    // Shimmer — sine overtone adds aura/energy haze
-    const shimmer = context.createOscillator()
-    shimmer.type = 'sine'
-    shimmer.frequency.value = RASENGAN_LOOP_SHIMMER_FREQUENCY
-    const shimmerGain = context.createGain()
-    shimmerGain.gain.value = 0.3
-    shimmer.connect(shimmerGain)
-    shimmerGain.connect(output)
-
-    // Bandpass-filtered noise — continuous energetic texture
-    const noise = context.createBufferSource()
-    noise.buffer = renderNoiseBuffer(context)
-    noise.loop = NOISE_BUFFER_LOOPING
-    const bandpass = context.createBiquadFilter()
-    bandpass.type = 'bandpass'
-    bandpass.frequency.value = RASENGAN_LOOP_NOISE_BANDPASS
-    bandpass.Q.value = RASENGAN_LOOP_NOISE_Q
-    const noiseGain = context.createGain()
-    noiseGain.gain.value = RASENGAN_LOOP_NOISE_LEVEL
-    noise.connect(bandpass)
-    bandpass.connect(noiseGain)
-    noiseGain.connect(output)
-
-    // Slow LFO — overall swelling/breathing modulation
-    const lfo = context.createOscillator()
-    lfo.type = 'sine'
-    lfo.frequency.value = RASENGAN_LOOP_LFO_RATE
-    const lfoGain = context.createGain()
-    lfoGain.gain.value = RASENGAN_LOOP_LFO_DEPTH
-    lfo.connect(lfoGain)
-    lfoGain.connect(output.gain)
-
-    // Fast pulse — spinning/rotating character
-    const pulse = context.createOscillator()
-    pulse.type = 'sine'
-    pulse.frequency.value = RASENGAN_LOOP_PULSE_RATE
+    // Slow gain modulation for contained pulsing energy
+    const pulseLFO = context.createOscillator()
+    pulseLFO.type = 'sine'
+    pulseLFO.frequency.value = RASENGAN_LOOP_PULSE_RATE
     const pulseGain = context.createGain()
     pulseGain.gain.value = RASENGAN_LOOP_PULSE_DEPTH
-    pulse.connect(pulseGain)
+    pulseLFO.connect(pulseGain)
     pulseGain.connect(output.gain)
 
     const now = context.currentTime
     output.gain.setValueAtTime(MIN_REASONABLE_GAIN, now)
     output.gain.exponentialRampToValueAtTime(RASENGAN_LOOP_GAIN_PEAK, now + OUTPUT_FADE_SECONDS)
 
-    sub.start(now)
-    mid.start(now)
-    shimmer.start(now)
-    noise.start(now)
-    lfo.start(now)
-    pulse.start(now)
+    body.start(now)
+    pulseLFO.start(now)
 
     loopsByKind.set('rasengan', {
       kind: 'rasengan',
       bundle,
       output,
-      anchoredSources: [sub, mid, shimmer, noise, lfo, pulse],
-      gains: [midGain, shimmerGain, noiseGain, lfoGain, pulseGain],
+      anchoredSources: [body, pulseLFO],
+      gains: [bodyOscGain, pulseGain],
       startedSince: now,
       stopped: false,
     })
