@@ -27,13 +27,19 @@ const OUTPUT_FADE_SECONDS = 0.28
 const OUTPUT_SETTLE_GAP_SECONDS = 0.1
 const NOISE_BUFFER_SECONDS = 2
 const NOISE_BUFFER_LOOPING = true
-const RASENGAN_LOOP_SUB_BASE = 46
+const RASENGAN_LOOP_SUB_BASE = 80
 const RASENGAN_LOOP_SUB_DETUNE = 8
-const RASENGAN_LOOP_CARRIER_FREQUENCY = 92
-const RASENGAN_LOOP_FILTER_FREQUENCY = 150
-const RASENGAN_LOOP_GAIN_PEAK = 0.11
-const RASENGAN_LOOP_LFO_RATE = 0.6
-const RASENGAN_LOOP_LFO_DEPTH = 0.035
+const RASENGAN_LOOP_MID_FREQUENCY = 160
+const RASENGAN_LOOP_MID_DETUNE = -6
+const RASENGAN_LOOP_SHIMMER_FREQUENCY = 240
+const RASENGAN_LOOP_NOISE_BANDPASS = 700
+const RASENGAN_LOOP_NOISE_Q = 2.0
+const RASENGAN_LOOP_NOISE_LEVEL = 0.08
+const RASENGAN_LOOP_GAIN_PEAK = 0.18
+const RASENGAN_LOOP_LFO_RATE = 0.5
+const RASENGAN_LOOP_LFO_DEPTH = 0.06
+const RASENGAN_LOOP_PULSE_RATE = 7
+const RASENGAN_LOOP_PULSE_DEPTH = 0.035
 const LIGHTNING_LOOP_BUZZ_BASE = 128
 const LIGHTNING_LOOP_BUZZ_DETUNE = 14
 const LIGHTNING_LOOP_BUZZ_TWO_FREQUENCY = 278
@@ -233,10 +239,15 @@ export function playRasenganActivation(): void {
     rasenganOneShotInFlight -= 1
   }
   try {
-    scheduleToneOneShot(bundle, 'sine', 96, 244, 0.22, 0.06, 0.05, 0.34, 0)
-    scheduleToneOneShot(bundle, 'triangle', 42, 72, 0.3, 0.02, 0.1, 0.3, 0)
-    scheduleNoiseOneShot(bundle, 'bandpass', 1200, 1.2, 0.16, 0.04, 0.1, 0.3, 0)
-    window.setTimeout(finish, 560)
+    // Rising sawtooth sweep — spinning energy charging up
+    scheduleToneOneShot(bundle, 'sawtooth', 80, 320, 0.18, 0.09, 0.12, 0.32, 0)
+    // Harmonic overtone — adds brightness and spin character
+    scheduleToneOneShot(bundle, 'sine', 160, 480, 0.14, 0.07, 0.1, 0.36, 0.04)
+    // Bandpass noise swell — energy texture body
+    scheduleNoiseOneShot(bundle, 'bandpass', 900, 2.0, 0.16, 0.11, 0.14, 0.26, 0.02)
+    // Descending settling tone — bridges into the loop
+    scheduleToneOneShot(bundle, 'sine', 320, 160, 0.10, 0.12, 0.06, 0.28, 0.28)
+    window.setTimeout(finish, 760)
   } catch {
     finish()
   }
@@ -249,19 +260,48 @@ export function playRasenganLoopStart(): void {
   try {
     const { context } = bundle
     const output = buildLoopOutput(bundle)
+
+    // Sub-bass body — gives weight and grounding
     const sub = context.createOscillator()
     sub.type = 'sawtooth'
     sub.frequency.value = RASENGAN_LOOP_SUB_BASE
     sub.detune.value = RASENGAN_LOOP_SUB_DETUNE
-    const carrier = context.createOscillator()
-    carrier.type = 'sine'
-    carrier.frequency.value = RASENGAN_LOOP_CARRIER_FREQUENCY
-    const lowpass = context.createBiquadFilter()
-    lowpass.type = 'lowpass'
-    lowpass.frequency.value = RASENGAN_LOOP_FILTER_FREQUENCY
-    sub.connect(lowpass)
-    carrier.connect(lowpass)
-    lowpass.connect(output)
+    sub.connect(output)
+
+    // Mid spinning layer — primary audible body on laptop/desktop speakers
+    const mid = context.createOscillator()
+    mid.type = 'sawtooth'
+    mid.frequency.value = RASENGAN_LOOP_MID_FREQUENCY
+    mid.detune.value = RASENGAN_LOOP_MID_DETUNE
+    const midGain = context.createGain()
+    midGain.gain.value = 0.55
+    mid.connect(midGain)
+    midGain.connect(output)
+
+    // Shimmer — sine overtone adds aura/energy haze
+    const shimmer = context.createOscillator()
+    shimmer.type = 'sine'
+    shimmer.frequency.value = RASENGAN_LOOP_SHIMMER_FREQUENCY
+    const shimmerGain = context.createGain()
+    shimmerGain.gain.value = 0.3
+    shimmer.connect(shimmerGain)
+    shimmerGain.connect(output)
+
+    // Bandpass-filtered noise — continuous energetic texture
+    const noise = context.createBufferSource()
+    noise.buffer = renderNoiseBuffer(context)
+    noise.loop = NOISE_BUFFER_LOOPING
+    const bandpass = context.createBiquadFilter()
+    bandpass.type = 'bandpass'
+    bandpass.frequency.value = RASENGAN_LOOP_NOISE_BANDPASS
+    bandpass.Q.value = RASENGAN_LOOP_NOISE_Q
+    const noiseGain = context.createGain()
+    noiseGain.gain.value = RASENGAN_LOOP_NOISE_LEVEL
+    noise.connect(bandpass)
+    bandpass.connect(noiseGain)
+    noiseGain.connect(output)
+
+    // Slow LFO — overall swelling/breathing modulation
     const lfo = context.createOscillator()
     lfo.type = 'sine'
     lfo.frequency.value = RASENGAN_LOOP_LFO_RATE
@@ -269,18 +309,33 @@ export function playRasenganLoopStart(): void {
     lfoGain.gain.value = RASENGAN_LOOP_LFO_DEPTH
     lfo.connect(lfoGain)
     lfoGain.connect(output.gain)
+
+    // Fast pulse — spinning/rotating character
+    const pulse = context.createOscillator()
+    pulse.type = 'sine'
+    pulse.frequency.value = RASENGAN_LOOP_PULSE_RATE
+    const pulseGain = context.createGain()
+    pulseGain.gain.value = RASENGAN_LOOP_PULSE_DEPTH
+    pulse.connect(pulseGain)
+    pulseGain.connect(output.gain)
+
     const now = context.currentTime
     output.gain.setValueAtTime(MIN_REASONABLE_GAIN, now)
     output.gain.exponentialRampToValueAtTime(RASENGAN_LOOP_GAIN_PEAK, now + OUTPUT_FADE_SECONDS)
+
     sub.start(now)
-    carrier.start(now)
+    mid.start(now)
+    shimmer.start(now)
+    noise.start(now)
     lfo.start(now)
+    pulse.start(now)
+
     loopsByKind.set('rasengan', {
       kind: 'rasengan',
       bundle,
       output,
-      anchoredSources: [sub, carrier, lfo],
-      gains: [lfoGain],
+      anchoredSources: [sub, mid, shimmer, noise, lfo, pulse],
+      gains: [midGain, shimmerGain, noiseGain, lfoGain, pulseGain],
       startedSince: now,
       stopped: false,
     })
@@ -391,9 +446,12 @@ export function playMagicCircleActivation(): void {
     magicCircleOneShotInFlight -= 1
   }
   try {
-    scheduleToneOneShot(bundle, 'sine', 660, 1580, 0.14, 0.02, 0.06, 0.5, 0)
-    scheduleToneOneShot(bundle, 'sine', 990, 2110, 0.1, 0.04, 0.05, 0.6, 0.05)
-    scheduleNoiseOneShot(bundle, 'highpass', 6000, 0.5, 0.05, 0.05, 0.08, 0.42, 0)
+    // Warm rising tone — starts at loop drone frequency, no click (attack 0.10s)
+    scheduleToneOneShot(bundle, 'sine', 228, 456, 0.10, 0.10, 0.10, 0.38, 0)
+    // Shimmer overtone — adds magical harmonic above
+    scheduleToneOneShot(bundle, 'sine', 456, 912, 0.07, 0.12, 0.06, 0.34, 0.08)
+    // Soft bandpass texture — gentle energy without harsh spike
+    scheduleNoiseOneShot(bundle, 'bandpass', 1600, 3.0, 0.04, 0.14, 0.06, 0.24, 0.12)
     window.setTimeout(finish, 840)
   } catch {
     finish()
