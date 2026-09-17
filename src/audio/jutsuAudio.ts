@@ -23,7 +23,6 @@ interface LoopAudio {
 }
 
 const MIN_REASONABLE_GAIN = 0.0001
-const MIN_REASONABLE_AUDIO_TIME = 0.001
 const OUTPUT_FADE_SECONDS = 0.28
 const OUTPUT_SETTLE_GAP_SECONDS = 0.1
 const NOISE_BUFFER_SECONDS = 2
@@ -185,14 +184,6 @@ function scheduleNoiseOneShot(
   }
 }
 
-function connectLoopOutput(loop: LoopAudio): void {
-  try {
-    loop.output.connect(loop.bundle.master)
-  } catch {
-    /* audio must never break the app */
-  }
-}
-
 function fadeOutAndRelease(loop: LoopAudio): void {
   if (loop.stopped) return
   loop.stopped = true
@@ -244,7 +235,7 @@ export function playRasenganActivation(): void {
   try {
     scheduleToneOneShot(bundle, 'sine', 96, 244, 0.22, 0.06, 0.05, 0.34, 0)
     scheduleToneOneShot(bundle, 'triangle', 42, 72, 0.3, 0.02, 0.1, 0.3, 0)
-    scheduleNoiseOneShot(bundle, 'bandpass', 1200, abrq, 0.16, 0.04, 0.1, 0.3, 0)
+    scheduleNoiseOneShot(bundle, 'bandpass', 1200, 1.2, 0.16, 0.04, 0.1, 0.3, 0)
     window.setTimeout(finish, 560)
   } catch {
     finish()
@@ -474,7 +465,6 @@ export function ensureAudioActive(): void {
 }
 
 export function attachJutsuUnlockListeners(): void {
-  attachUnlockListeners()
   attachUnlockListeners()
 }
 
