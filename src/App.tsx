@@ -13,6 +13,7 @@ import { useSelfieSegmentation } from './hooks/useSelfieSegmentation'
 import { LightningDebugPanel } from './jutsu/lightning/LightningDebugPanel'
 import { MagicCircleDebugPanel } from './jutsu/magicCircle/MagicCircleDebugPanel'
 import { useMagicCircle } from './jutsu/magicCircle/useMagicCircle'
+import { useJutsuAudio } from './audio/useJutsuAudio'
 
 const VISION_STATUS_LABEL: Record<string, string> = {
   loading: 'Loading hand tracker...',
@@ -30,6 +31,12 @@ export default function App() {
   const magicCircle = useMagicCircle(registerSink)
   const segmentation = useSelfieSegmentation(videoRef)
   const shadowCloneEffect = useShadowCloneEffect(segmentation.personCanvasRef, gesture.state)
+  useJutsuAudio({
+    rasenganResult: rasengan.result,
+    lightningResult: lightning.result,
+    magicCircleResult: magicCircle.result,
+    shadowCloneState: gesture.state,
+  })
   const debugMode = new URLSearchParams(window.location.search).has('debug')
 
   const cameraLive = cameraState.status === 'ready'
