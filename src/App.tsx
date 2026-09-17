@@ -6,9 +6,11 @@ import { RasenganDebugPanel } from './components/RasenganDebugPanel'
 import { useCamera } from './hooks/useCamera'
 import { useGestureDetection } from './hooks/useGestureDetection'
 import { useHandTracking } from './hooks/useHandTracking'
+import { useLightning } from './hooks/useLightning'
 import { useRasengan } from './hooks/useRasengan'
 import { useShadowCloneEffect } from './hooks/useShadowCloneEffect'
 import { useSelfieSegmentation } from './hooks/useSelfieSegmentation'
+import { LightningDebugPanel } from './jutsu/lightning/LightningDebugPanel'
 import { MagicCircleDebugPanel } from './jutsu/magicCircle/MagicCircleDebugPanel'
 import { useMagicCircle } from './jutsu/magicCircle/useMagicCircle'
 
@@ -24,6 +26,7 @@ export default function App() {
   const { handsCount, visionFps, status: handStatus, registerSink } = useHandTracking(videoRef)
   const gesture = useGestureDetection(registerSink)
   const rasengan = useRasengan(registerSink)
+  const lightning = useLightning(registerSink)
   const magicCircle = useMagicCircle(registerSink)
   const segmentation = useSelfieSegmentation(videoRef)
   const shadowCloneEffect = useShadowCloneEffect(segmentation.personCanvasRef, gesture.state)
@@ -58,6 +61,13 @@ export default function App() {
           <canvas
             ref={rasengan.canvasRef}
             className="rasengan-effect-canvas"
+            width={1}
+            height={1}
+            aria-hidden="true"
+          />
+          <canvas
+            ref={lightning.canvasRef}
+            className="lightning-effect-canvas"
             width={1}
             height={1}
             aria-hidden="true"
@@ -104,6 +114,7 @@ export default function App() {
           />
         )}
         {debugMode && <RasenganDebugPanel result={rasengan.result} />}
+        {debugMode && <LightningDebugPanel result={lightning.result} />}
         {debugMode && <MagicCircleDebugPanel result={magicCircle.result} />}
       </main>
     </div>

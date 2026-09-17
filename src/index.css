@@ -160,6 +160,16 @@ body {
   z-index: 4;
 }
 
+.lightning-effect-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform: scaleX(-1);
+  z-index: 4;
+}
+
 .magic-circle-effect-canvas {
   position: absolute;
   inset: 0;
@@ -358,6 +368,17 @@ body {
   border-radius: var(--radius);
   background: linear-gradient(135deg, rgba(85, 35, 105, 0.72), var(--bg-card));
   border: 1px solid rgba(225, 116, 255, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lightning-debug {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(0, 60, 90, 0.72), var(--bg-card));
+  border: 1px solid rgba(0, 220, 255, 0.45);
   display: flex;
   flex-direction: column;
   gap: 12px;
