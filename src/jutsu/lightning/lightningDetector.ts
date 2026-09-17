@@ -93,6 +93,7 @@ function emptyResult(state: LightningState = 'SEARCHING'): LightningDetection {
     lostForMs: 0,
     handScale: 0,
     handVisible: false,
+    landmarks: null,
   }
 }
 
@@ -103,6 +104,7 @@ export function createLightningDetector(targetHand: LightningHand = 'right'): Li
   let missingSince: number | null = null
   let lastPosition: { x: number; y: number } | null = null
   let lastPalmSize = 0
+  let lastLandmarks: Hand | null = null
   let fadeStartedAt: number | null = null
   let lastResult = emptyResult()
 
@@ -113,6 +115,7 @@ export function createLightningDetector(targetHand: LightningHand = 'right'): Li
     missingSince = null
     lastPosition = null
     lastPalmSize = 0
+    lastLandmarks = null
     fadeStartedAt = null
     lastResult = emptyResult()
   }
@@ -158,6 +161,7 @@ export function createLightningDetector(targetHand: LightningHand = 'right'): Li
           lostForMs,
           handScale: lastPalmSize,
           handVisible: false,
+          landmarks: lastLandmarks,
         }
 
         if (lostForMs > LOST_HAND_GRACE_MS + FADE_OUT_MS) reset()
@@ -173,6 +177,7 @@ export function createLightningDetector(targetHand: LightningHand = 'right'): Li
       const size = palmSize(landmarks)
       lastPosition = position
       lastPalmSize = size
+      lastLandmarks = landmarks
 
       if (!fist.detected) {
         if (activated) {
@@ -191,6 +196,7 @@ export function createLightningDetector(targetHand: LightningHand = 'right'): Li
             lostForMs: 0,
             handScale: size,
             handVisible: true,
+            landmarks,
           }
           if (fadeProgress >= 1) reset()
           return lastResult
@@ -213,6 +219,7 @@ export function createLightningDetector(targetHand: LightningHand = 'right'): Li
           lostForMs: 0,
           handScale: size,
           handVisible: true,
+          landmarks,
         }
         return lastResult
       }
@@ -240,6 +247,7 @@ export function createLightningDetector(targetHand: LightningHand = 'right'): Li
         lostForMs: 0,
         handScale: size,
         handVisible: true,
+        landmarks,
       }
       return lastResult
     },

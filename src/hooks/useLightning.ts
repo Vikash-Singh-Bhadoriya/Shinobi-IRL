@@ -17,6 +17,7 @@ function createEmptyResult(): LightningDetection {
     lostForMs: 0,
     handScale: 0,
     handVisible: false,
+    landmarks: null,
   }
 }
 

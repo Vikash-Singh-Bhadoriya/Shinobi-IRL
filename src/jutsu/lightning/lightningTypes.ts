@@ -1,4 +1,4 @@
-import type { HandFrame } from '../../types/hand'
+import type { Hand, HandFrame } from '../../types/hand'
 
 export type LightningHand = 'left' | 'right'
 
@@ -26,6 +26,8 @@ export interface LightningDetection {
   lostForMs: number
   handScale: number
   handVisible: boolean
+  /** Raw 21-point MediaPipe hand skeleton so the renderer can follow hand anatomy. Kept for the last visible frame during fade-out. */
+  landmarks: Hand | null
 }
 
 export interface LightningInstance {
