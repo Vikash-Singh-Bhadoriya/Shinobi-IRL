@@ -1,5 +1,6 @@
 import type { RasenganDetection, RasenganInstance } from './rasenganTypes'
 
+const GRACE_MS = 1000
 const FADE_MS = 500
 
 interface Particle {
@@ -77,9 +78,8 @@ export class RasenganRenderer {
         const visible = detection.palmPosition ? instance : this.lastVisible.get(instance.id)
         const missingAt = this.missingSince.get(instance.id)
         const missingFor = missingAt === undefined ? 0 : now - missingAt
-        const graceOpacity = missingFor > 0 ? 0.72 : 1
-        const fade = missingFor <= 1000 ? graceOpacity : Math.max(0, 1 - (missingFor - 1000) / FADE_MS)
-        if (visible?.detection.palmPosition && fade > 0 && (visible.detection.active || visible.detection.state === 'CHARGING' || visible.detection.state === 'LOST_HAND_GRACE')) {
+        const fade = missingFor <= GRACE_MS ? 1 : Math.max(0, 1 - (missingFor - GRACE_MS) / FADE_MS)
+        if (visible?.detection.palmPosition && fade > 0 && (visible.detection.active || visible.detection.state === 'CHARGING' || visible.detection.state === 'LOST_HAND_GRACE' || visible.detection.state === 'FADE_OUT')) {
           this.drawRasengan(visible.detection, instance.color, width, height, now, fade)
         }
       }
@@ -93,7 +93,9 @@ export class RasenganRenderer {
     const centerY = y * height
     const scale = Math.min(width, height)
     const radius = Math.max(12, detection.palmSize * scale * 0.62)
-    const progress = detection.active ? 1 : Math.min(1, 0.25 + (now % 500) / 500)
+    const progress = detection.active || detection.state === 'LOST_HAND_GRACE' || detection.state === 'FADE_OUT'
+      ? 1
+      : Math.min(1, 0.25 + (now % 500) / 500)
     const pulse = 1 + Math.sin(now / 130) * 0.035
 
     this.ctx.save()

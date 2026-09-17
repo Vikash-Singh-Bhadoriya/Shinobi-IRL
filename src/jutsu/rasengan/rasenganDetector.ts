@@ -9,9 +9,11 @@ import type {
   RasenganHand,
 } from './rasenganTypes'
 
-const HISTORY_SIZE = 12
+const HISTORY_SIZE = 54
 const MOTION_WINDOW_MS = 850
-const CHARGE_MS = 500
+const CHARGE_MS = 240
+const CHARGE_MOTION_GRACE_MS = 150
+const GESTURE_GATE_RESET_MS = 200
 const LOST_HAND_GRACE_MS = 1000
 const FADE_OUT_MS = 500
 const MIN_SWEEP = Math.PI * 1.15
@@ -102,6 +104,8 @@ function emptyResult(state: RasenganState = 'SEARCHING', lostForMs = 0): Rasenga
 export function createRasenganDetector(targetHand: RasenganHand = 'right'): RasenganDetector {
   let samples: Sample[] = []
   let chargeStartedAt: number | null = null
+  let motionLostSince: number | null = null
+  let gestureGateLostSince: number | null = null
   let activated = false
   let missingSince: number | null = null
   let lastHand: HandSnapshot | null = null
@@ -110,6 +114,8 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
   const reset = () => {
     samples = []
     chargeStartedAt = null
+    motionLostSince = null
+    gestureGateLostSince = null
     activated = false
     missingSince = null
     lastHand = null
@@ -135,6 +141,8 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
         if (!activated) {
           samples = []
           chargeStartedAt = null
+          motionLostSince = null
+          gestureGateLostSince = null
           lastResult = emptyResult('SEARCHING', lostForMs)
           return lastResult
         }
@@ -170,17 +178,36 @@ export function createRasenganDetector(targetHand: RasenganHand = 'right'): Rase
         landmark.y <= 0.985,
       )
       lastHand = { position, rotation, size }
-      if (open && handVisible) samples = [...samples, { ...position, now, scale: size }].slice(-HISTORY_SIZE)
-      else if (!activated) samples = []
+
+      if (open && handVisible) {
+        samples = [...samples, { ...position, now, scale: size }].slice(-HISTORY_SIZE)
+        gestureGateLostSince = null
+      } else if (gestureGateLostSince === null) {
+        gestureGateLostSince = now
+      }
+
+      if (!activated) {
+        if (gestureGateLostSince !== null && now - gestureGateLostSince >= GESTURE_GATE_RESET_MS) {
+          samples = []
+          chargeStartedAt = null
+          motionLostSince = null
+        }
+      }
 
       const motion = !activated && open ? detectCircularMotion(samples) : { detected: false, confidence: 0 }
-      if (!activated && open && motion.detected) {
-        if (chargeStartedAt === null) chargeStartedAt = now
-      } else if (!activated) {
-        chargeStartedAt = null
-      }
-      if (!activated && chargeStartedAt !== null && now - chargeStartedAt >= CHARGE_MS) {
-        activated = true
+      if (!activated) {
+        if (motion.detected) {
+          if (chargeStartedAt === null) chargeStartedAt = now
+          motionLostSince = null
+        } else if (chargeStartedAt !== null && motionLostSince === null) {
+          motionLostSince = now
+        }
+        if (chargeStartedAt !== null && motionLostSince !== null && now - motionLostSince >= CHARGE_MOTION_GRACE_MS) {
+          chargeStartedAt = null
+        }
+        if (chargeStartedAt !== null && now - chargeStartedAt >= CHARGE_MS) {
+          activated = true
+        }
       }
 
       const charging = !activated && chargeStartedAt !== null
