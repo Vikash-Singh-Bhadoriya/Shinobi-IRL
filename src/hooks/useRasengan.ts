@@ -17,21 +17,7 @@ function createEmptyResult(): RasenganDetection {
     palmOpen: false,
     circularMotion: false,
     lostForMs: 0,
-    velocity: { x: 0, y: 0, z: 0, magnitude: 0 },
-    previousVelocity: 0,
-    acceleration: 0,
     handScale: 0,
-    pinchDetected: false,
-    pinchRawDistance: 0,
-    pinchDistance: 0,
-    pinchStartThreshold: 0,
-    pinchReleaseThreshold: 0,
-    pinchDurationMs: 0,
-    throwConfidence: 0,
-    throwDetected: false,
-    throwCondition: false,
-    projectilePosition: null,
-    projectileProgress: 0,
     state: 'SEARCHING',
   }
 }
@@ -79,7 +65,7 @@ export function useRasengan(registerSink: (sink: HandFrameSink) => () => void) {
         detection: detectors[hand].analyze(frame, now),
       }))
       rendererRef.current?.setDetections(instances)
-      const key = instances.map(({ hand, detection: next }) => `${hand}:${next.state}:${next.palmOpen}:${next.circularMotion}:${next.active}:${next.throwDetected}:${Math.round(next.confidence * 100)}:${Math.round(next.velocity.magnitude * 100000)}:${Math.round(next.handScale * 1000)}:${Math.round((next.projectilePosition?.x ?? -1) * 100)}:${Math.round((next.projectilePosition?.y ?? -1) * 100)}`).join('|')
+      const key = instances.map(({ hand, detection: next }) => `${hand}:${next.state}:${next.palmOpen}:${next.circularMotion}:${next.active}:${Math.round(next.confidence * 100)}:${Math.round(next.handScale * 1000)}:${Math.round((next.palmPosition?.x ?? -1) * 100)}:${Math.round((next.palmPosition?.y ?? -1) * 100)}`).join('|')
       const stateChanged = instances.some(({ hand, detection: next }) => next.state !== lastStateRef.current[hand])
       if (key !== lastKeyRef.current && (now - lastDebugUpdateRef.current >= 100 || stateChanged)) {
         lastKeyRef.current = key
