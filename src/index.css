@@ -510,3 +510,34 @@ body {
     animation: none;
   }
 }
+
+/* ---------- Footer ---------- */
+
+.app-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  user-select: none;
+}
+
+.app:not(.is-debug) .app-footer {
+  display: none;
+}
+
+.app-footer-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  letter-spacing: 0.05em;
+  transition: color 0.15s ease;
+}
+
+.app-footer-link:hover {
+  color: var(--accent);
+}
+
+.app-footer-sep {
+  opacity: 0.4;
+}

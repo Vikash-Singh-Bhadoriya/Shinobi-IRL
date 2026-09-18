@@ -14,6 +14,8 @@ import { LightningDebugPanel } from './jutsu/lightning/LightningDebugPanel'
 import { MagicCircleDebugPanel } from './jutsu/magicCircle/MagicCircleDebugPanel'
 import { useMagicCircle } from './jutsu/magicCircle/useMagicCircle'
 import { useJutsuAudio } from './audio/useJutsuAudio'
+import { useAnalytics } from './analytics/useAnalytics'
+import { trackGitHubClicked, trackLinkedInClicked } from './analytics/analytics'
 
 const VISION_STATUS_LABEL: Record<string, string> = {
   loading: 'Loading hand tracker...',
@@ -35,6 +37,15 @@ export default function App() {
   const shadowCloneEffect = useShadowCloneEffect(segmentation.personCanvasRef, gesture.state)
 
   useJutsuAudio({
+    rasenganResult: rasengan.result,
+    lightningResult: lightning.result,
+    magicCircleResult: magicCircle.result,
+    shadowCloneState: gesture.state,
+  })
+
+  // Analytics — pure observer of existing state, no detection logic
+  useAnalytics({
+    cameraReady: cameraState.status === 'ready',
     rasenganResult: rasengan.result,
     lightningResult: lightning.result,
     magicCircleResult: magicCircle.result,
@@ -128,6 +139,28 @@ export default function App() {
         {debugMode && <LightningDebugPanel result={lightning.result} />}
         {debugMode && <MagicCircleDebugPanel result={magicCircle.result} />}
       </main>
+
+      <footer className="app-footer">
+        <a
+          href="https://github.com/Vikash-Singh-Bhadoriya/Shinobi-IRL"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="app-footer-link"
+          onClick={trackGitHubClicked}
+        >
+          GitHub
+        </a>
+        <span className="app-footer-sep" aria-hidden="true">·</span>
+        <a
+          href="https://www.linkedin.com/in/mrvikashsingh/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="app-footer-link"
+          onClick={trackLinkedInClicked}
+        >
+          LinkedIn
+        </a>
+      </footer>
     </div>
   )
 }

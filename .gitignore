@@ -5,3 +5,6 @@ dist-ssr
 *.tsbuildinfo
 .DS_Store
 npm-debug.log*
+# Local env with secrets
+.env.local
+.env.*.local
