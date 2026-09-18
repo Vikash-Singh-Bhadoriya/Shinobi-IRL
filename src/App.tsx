@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { CameraView } from './components/CameraView'
 import { GestureDebugPanel } from './components/GestureDebugPanel'
 import { HandOverlay } from './components/HandOverlay'
@@ -16,12 +16,17 @@ import { useMagicCircle } from './jutsu/magicCircle/useMagicCircle'
 import { useJutsuAudio } from './audio/useJutsuAudio'
 import { useAnalytics } from './analytics/useAnalytics'
 import { trackGitHubClicked, trackLinkedInClicked } from './analytics/analytics'
+import { OnboardingOverlay } from './components/OnboardingOverlay'
+import { SettingsPanel } from './components/SettingsPanel'
 
 const VISION_STATUS_LABEL: Record<string, string> = {
   loading: 'Loading hand tracker...',
   ready: 'Hand tracker ready',
   error: 'Hand tracker error',
 }
+
+const COMPLETED_KEY = 'shinobi_onboarding_completed'
+const SHOW_ON_STARTUP_KEY = 'shinobi_onboarding_show_on_startup'
 
 export default function App() {
   const { start: onStart, ...cameraState } = useCamera()
@@ -56,6 +61,34 @@ export default function App() {
 
   const cameraLive = cameraState.status === 'ready'
   const visionLive = handStatus === 'ready' && cameraLive
+
+  // Onboarding & Settings State
+  const [onboardingCompleted, setOnboardingCompleted] = useState(() => localStorage.getItem(COMPLETED_KEY) === 'true')
+  const [showOnStartup, setShowOnStartup] = useState(() => {
+    const val = localStorage.getItem(SHOW_ON_STARTUP_KEY)
+    return val === null ? true : val === 'true'
+  })
+
+  // Conceptual start condition: show if showOnStartup && !onboardingCompleted
+  const [showTutorial, setShowTutorial] = useState(() => showOnStartup && !onboardingCompleted)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  const handleGotIt = () => {
+    setShowTutorial(false)
+    setOnboardingCompleted(true)
+    localStorage.setItem(COMPLETED_KEY, 'true')
+  }
+
+  const handleToggleShowOnStartup = () => {
+    const next = !showOnStartup
+    setShowOnStartup(next)
+    localStorage.setItem(SHOW_ON_STARTUP_KEY, next ? 'true' : 'false')
+  }
+
+  const openTutorial = () => {
+    setSettingsOpen(false)
+    setShowTutorial(true)
+  }
 
   return (
     <div className={`app ${debugMode ? 'is-debug' : ''}`}>
@@ -161,6 +194,26 @@ export default function App() {
           LinkedIn
         </a>
       </footer>
+
+      <button
+        className="settings-toggle-btn"
+        onClick={() => setSettingsOpen(true)}
+        aria-label="Settings"
+        aria-expanded={settingsOpen}
+      >
+        ⚙
+      </button>
+
+      {settingsOpen && (
+        <SettingsPanel
+          onClose={() => setSettingsOpen(false)}
+          showOnStartup={showOnStartup}
+          onToggleShowOnStartup={handleToggleShowOnStartup}
+          onShowTutorial={openTutorial}
+        />
+      )}
+
+      {showTutorial && <OnboardingOverlay onDismiss={handleGotIt} />}
     </div>
   )
 }

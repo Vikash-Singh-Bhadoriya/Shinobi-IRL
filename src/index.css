@@ -541,3 +541,228 @@ body {
 .app-footer-sep {
   opacity: 0.4;
 }
+
+/* ---------- Settings & Onboarding ---------- */
+
+.settings-toggle-btn {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  background: rgba(7, 10, 16, 0.6);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 1.1rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  z-index: 20;
+  transition: color 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.settings-toggle-btn:hover {
+  color: var(--text);
+  border-color: var(--accent-dim);
+  transform: scale(1.05);
+}
+
+.onboarding-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(7, 10, 16, 0.7);
+  backdrop-filter: blur(8px);
+}
+
+.onboarding-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+}
+
+.onboarding-title {
+  margin: 0 0 12px 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+}
+
+.onboarding-desc {
+  color: var(--text-dim);
+  margin: 0 0 28px 0;
+  font-size: 0.95rem;
+}
+
+.onboarding-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+  margin-bottom: 36px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.onboarding-legend.settings-legend {
+  margin-bottom: 0;
+  padding: 16px;
+}
+
+.legend-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 20px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.legend-row span:nth-child(2) { color: var(--text-dim); }
+.legend-row span:nth-child(3) { color: var(--border); justify-self: center; }
+
+.onboarding-btn {
+  width: 100%;
+}
+
+.settings-panel-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+}
+
+.settings-panel {
+  position: absolute;
+  top: 80px;
+  right: 24px;
+  width: 320px;
+  background: rgba(10, 14, 21, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  backdrop-filter: blur(12px);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
+@media (max-width: 480px) {
+  .settings-panel {
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    border: none;
+  }
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.05em;
+}
+
+.settings-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+.settings-close:hover { color: var(--text); }
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-section-title {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.settings-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  padding: 4px 0;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.toggle-btn.is-on { color: var(--accent); }
+.toggle-btn.is-off { color: var(--text-dim); }
+.toggle-btn:hover { background: rgba(255, 255, 255, 0.05); }
+
+.settings-links {
+  display: flex;
+  gap: 20px;
+}
+.settings-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.settings-link:hover { text-decoration: underline; }
+
+.action-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.action-btn:hover:not(:disabled) { 
+  background: rgba(255, 255, 255, 0.08); 
+  border-color: var(--accent-dim);
+}
