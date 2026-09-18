@@ -551,7 +551,7 @@ body {
   background: rgba(7, 10, 16, 0.6);
   border: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 1.1rem;
+  font-size: 1.8rem;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -607,7 +607,7 @@ body {
   font-size: 0.95rem;
 }
 
-.onboarding-legend {
+.gesture-guide {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -618,21 +618,56 @@ body {
   border-radius: 12px;
 }
 
-.onboarding-legend.settings-legend {
+.settings-section .gesture-guide {
   margin-bottom: 0;
   padding: 16px;
 }
 
-.legend-row {
-  display: grid;
-  grid-template-columns: 24px 1fr 20px 1fr;
+.gesture-row {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
+  gap: 12px;
+  font-size: 0.95rem;
   font-weight: 500;
 }
-.legend-row span:nth-child(2) { color: var(--text-dim); }
-.legend-row span:nth-child(3) { color: var(--border); justify-self: center; }
+
+.gesture-icon {
+  width: 24px;
+  text-align: center;
+}
+
+.gesture-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gesture-desc {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.gesture-name {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.gesture-visual {
+  margin-left: auto;
+  opacity: 0.8;
+  height: 32px;
+  width: 32px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gesture-visual img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
 
 .onboarding-btn {
   width: 100%;

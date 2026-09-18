@@ -1,4 +1,5 @@
-﻿import { trackGitHubClicked, trackLinkedInClicked } from '../analytics/analytics'
+import { trackGitHubClicked, trackLinkedInClicked } from '../analytics/analytics'
+import { GestureGuide } from './GestureGuide'
 
 export interface SettingsPanelProps {
   onClose: () => void
@@ -28,12 +29,7 @@ export function SettingsPanel({
 
         <section className="settings-section">
           <h3 className="settings-section-title">How To Use</h3>
-          <div className="onboarding-legend settings-legend">
-            <div className="legend-row"><span>✨</span> <span>Open palm</span> <span>→</span> <span>Magic Circle</span></div>
-            <div className="legend-row"><span>🌀</span> <span>Circular hand</span> <span>→</span> <span>Rasengan</span></div>
-            <div className="legend-row"><span>⚡</span> <span>Fist</span> <span>→</span> <span>Lightning</span></div>
-            <div className="legend-row"><span>👥</span> <span>Two hands</span> <span>→</span> <span>Shadow Clone</span></div>
-          </div>
+          <GestureGuide />
         </section>
 
         <section className="settings-section">
