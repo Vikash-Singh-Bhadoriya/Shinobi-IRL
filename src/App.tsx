@@ -15,6 +15,8 @@ import { MagicCircleDebugPanel } from './jutsu/magicCircle/MagicCircleDebugPanel
 import { useMagicCircle } from './jutsu/magicCircle/useMagicCircle'
 import { useJutsuAudio } from './audio/useJutsuAudio'
 
+import { RecordingControls } from './components/RecordingControls'
+
 const VISION_STATUS_LABEL: Record<string, string> = {
   loading: 'Loading hand tracker...',
   ready: 'Hand tracker ready',
@@ -24,6 +26,8 @@ const VISION_STATUS_LABEL: Record<string, string> = {
 export default function App() {
   const { start: onStart, ...cameraState } = useCamera()
   const videoRef = useRef<HTMLVideoElement>(null)
+  const handOverlayCanvasRef = useRef<HTMLCanvasElement>(null)
+
   const { handsCount, visionFps, status: handStatus, registerSink } = useHandTracking(videoRef)
   const gesture = useGestureDetection(registerSink)
   const rasengan = useRasengan(registerSink)
@@ -31,16 +35,26 @@ export default function App() {
   const magicCircle = useMagicCircle(registerSink)
   const segmentation = useSelfieSegmentation(videoRef)
   const shadowCloneEffect = useShadowCloneEffect(segmentation.personCanvasRef, gesture.state)
+
   useJutsuAudio({
     rasenganResult: rasengan.result,
     lightningResult: lightning.result,
     magicCircleResult: magicCircle.result,
     shadowCloneState: gesture.state,
   })
+
   const debugMode = new URLSearchParams(window.location.search).has('debug')
 
   const cameraLive = cameraState.status === 'ready'
   const visionLive = handStatus === 'ready' && cameraLive
+
+  const canvasRefs = [
+    handOverlayCanvasRef,
+    shadowCloneEffect.canvasRef,
+    rasengan.canvasRef,
+    lightning.canvasRef,
+    magicCircle.canvasRef,
+  ]
 
   return (
     <div className={`app ${debugMode ? 'is-debug' : ''}`}>
@@ -87,7 +101,8 @@ export default function App() {
             aria-hidden="true"
           />
           <canvas ref={segmentation.personCanvasRef} className="person-mask-canvas" aria-hidden="true" />
-          <HandOverlay registerSink={registerSink} showDebug={debugMode} />
+          <HandOverlay canvasRef={handOverlayCanvasRef} registerSink={registerSink} showDebug={debugMode} />
+          {cameraLive && <RecordingControls videoRef={videoRef} canvasRefs={canvasRefs} />}
         </CameraView>
 
         {debugMode && <section className="vision-readouts" aria-label="Vision diagnostics">

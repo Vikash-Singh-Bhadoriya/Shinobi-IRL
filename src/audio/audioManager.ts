@@ -131,4 +131,20 @@ export function disposeAudio(): void {
     /* audio must never break the app */
   }
   audioBundle = null
+  recordingDestination = null
+}
+
+let recordingDestination: MediaStreamAudioDestinationNode | null = null
+
+export function getRecordingStream(): MediaStream | null {
+  if (!audioBundle) return null
+  try {
+    if (!recordingDestination) {
+      recordingDestination = audioBundle.context.createMediaStreamDestination()
+      audioBundle.master.connect(recordingDestination)
+    }
+    return recordingDestination.stream
+  } catch {
+    return null
+  }
 }

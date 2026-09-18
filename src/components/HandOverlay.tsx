@@ -5,10 +5,12 @@ import { HAND_CONNECTIONS } from '../vision/handLandmarker'
 interface HandOverlayProps {
   registerSink: (sink: HandFrameSink) => () => void
   showDebug?: boolean
+  canvasRef?: React.RefObject<HTMLCanvasElement>
 }
 
-export function HandOverlay({ registerSink, showDebug = false }: HandOverlayProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+export function HandOverlay({ registerSink, showDebug = false, canvasRef: externalRef }: HandOverlayProps) {
+  const internalRef = useRef<HTMLCanvasElement>(null)
+  const canvasRef = externalRef || internalRef
 
   useEffect(() => {
     const canvas = canvasRef.current
