@@ -26,32 +26,43 @@ export function HandOverlay({ registerSink, showDebug = false, canvasRef: extern
       if (canvas.height !== height) canvas.height = height
 
       ctx.clearRect(0, 0, width, height)
-      if (!showDebug || frame.length === 0) return
+      if (frame.length === 0) return
 
       const point = (l: { x: number; y: number }) => ({ x: l.x * width, y: l.y * height })
-
-      ctx.lineWidth = Math.max(1.5, width / 400)
-      ctx.lineCap = 'round'
-      ctx.lineJoin = 'round'
-      ctx.strokeStyle = 'rgba(124, 231, 255, 0.85)'
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'
+      
+      const scale = Math.max(1, width / 600)
 
       for (const tracked of frame) {
         const joints = tracked.landmarks.map(point)
 
+        ctx.globalAlpha = 1.0
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+
+        // Connections: thin lines, moderate opacity, subtle glow
         ctx.beginPath()
         for (const [start, end] of HAND_CONNECTIONS) {
           ctx.moveTo(joints[start].x, joints[start].y)
           ctx.lineTo(joints[end].x, joints[end].y)
         }
+        ctx.lineWidth = 1.2 * scale
+        ctx.strokeStyle = 'rgba(124, 231, 255, 0.45)'
+        ctx.shadowColor = 'rgba(124, 231, 255, 0.6)'
+        ctx.shadowBlur = 4 * scale
         ctx.stroke()
 
-        const radius = Math.max(2, width / 200)
+        // Remove shadow before drawing nodes to keep them clean
+        ctx.shadowBlur = 0
+
+        // Landmarks: small, consistent circles
+        const radius = 2.0 * scale
+        ctx.fillStyle = 'rgba(230, 245, 255, 0.85)'
+        ctx.beginPath()
         for (const joint of joints) {
-          ctx.beginPath()
+          ctx.moveTo(joint.x + radius, joint.y)
           ctx.arc(joint.x, joint.y, radius, 0, Math.PI * 2)
-          ctx.fill()
         }
+        ctx.fill()
       }
     }
 
