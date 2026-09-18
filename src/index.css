@@ -509,43 +509,4 @@ body {
   .camera-live-dot {
     animation: none;
   }
-}/* ---------- Recording Controls ---------- */
-.recording-controls {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
-}
-.btn-recording {
-  background: rgba(185, 28, 28, 0.85);
-  border-color: #ef4444;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.btn-recording:hover {
-  background: rgba(185, 28, 28, 0.95);
-  box-shadow: 0 0 0 1px #ef4444, 0 6px 24px rgba(239, 68, 68, 0.35);
-}
-.recording-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #fca5a5;
-  animation: pulse 1s infinite alternate;
-}
-.recording-dot-idle {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ef4444;
-  margin-right: 6px;
-}
-.recording-stop-text {
-  font-size: 0.8em;
-  opacity: 0.8;
-  margin-left: 4px;
 }

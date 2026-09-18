@@ -15,8 +15,6 @@ import { MagicCircleDebugPanel } from './jutsu/magicCircle/MagicCircleDebugPanel
 import { useMagicCircle } from './jutsu/magicCircle/useMagicCircle'
 import { useJutsuAudio } from './audio/useJutsuAudio'
 
-import { RecordingControls } from './components/RecordingControls'
-
 const VISION_STATUS_LABEL: Record<string, string> = {
   loading: 'Loading hand tracker...',
   ready: 'Hand tracker ready',
@@ -47,14 +45,6 @@ export default function App() {
 
   const cameraLive = cameraState.status === 'ready'
   const visionLive = handStatus === 'ready' && cameraLive
-
-  const canvasRefs = [
-    handOverlayCanvasRef,
-    shadowCloneEffect.canvasRef,
-    rasengan.canvasRef,
-    lightning.canvasRef,
-    magicCircle.canvasRef,
-  ]
 
   return (
     <div className={`app ${debugMode ? 'is-debug' : ''}`}>
@@ -102,7 +92,6 @@ export default function App() {
           />
           <canvas ref={segmentation.personCanvasRef} className="person-mask-canvas" aria-hidden="true" />
           <HandOverlay canvasRef={handOverlayCanvasRef} registerSink={registerSink} showDebug={debugMode} />
-          {cameraLive && <RecordingControls videoRef={videoRef} canvasRefs={canvasRefs} />}
         </CameraView>
 
         {debugMode && <section className="vision-readouts" aria-label="Vision diagnostics">
