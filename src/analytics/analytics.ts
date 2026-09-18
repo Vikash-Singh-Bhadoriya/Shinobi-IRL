@@ -108,10 +108,14 @@ function capture(event: string, properties?: Record<string, unknown>): void {
 // Public event API
 // ---------------------------------------------------------------------------
 
+let sessionStartedTracked = false
+
 /**
  * session_started — fires once when the app mounts.
  */
 export function trackSessionStarted(): void {
+  if (sessionStartedTracked) return
+  sessionStartedTracked = true
   capture('session_started')
 }
 
@@ -130,11 +134,16 @@ export function trackJutsuActivated(jutsu: JutsuName): void {
   capture('jutsu_activated', { jutsu })
 }
 
+let sessionEndedTracked = false
+
 /**
  * session_ended — fires on page hide / visibility hidden.
  * duration_ms is the time from page load to this call.
  */
 export function trackSessionEnded(): void {
+  if (sessionEndedTracked) return
+  sessionEndedTracked = true
+  
   const duration_ms = Date.now() - SESSION_START
   if (!initialised) return
   try {
