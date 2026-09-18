@@ -52,7 +52,7 @@ export default function App() {
     shadowCloneState: gesture.state,
   })
 
-  const debugMode = new URLSearchParams(window.location.search).has('debug')
+  const debugMode = import.meta.env.DEV && new URLSearchParams(window.location.search).has('debug')
 
   const cameraLive = cameraState.status === 'ready'
   const visionLive = handStatus === 'ready' && cameraLive
