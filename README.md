@@ -25,9 +25,11 @@ Perform the following gestures clearly to the camera to activate the correspondi
 | **Fist** | ⚡ Lightning |
 | **Cross hands (index & middle up)** | 👥 Shadow Clone |
 
-## Demo
+## Demo Video
 
-> Demo video coming soon.
+[![Shinobi IRL Demo](./assets/shinobi-irl-thumbnail.png)](https://youtu.be/A673PIuy8_Q)
+
+*Click on thumbnail to watch the full demo on YouTube.*
 
 ## How It Works
 
